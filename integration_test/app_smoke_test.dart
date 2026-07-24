@@ -11,7 +11,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('runner boi'), findsOneWidget);
+    expect(find.text('Runner Boi'), findsOneWidget);
     expect(
       find.text('Build the plan. Lock GPS. Do the segment.'),
       findsOneWidget,
