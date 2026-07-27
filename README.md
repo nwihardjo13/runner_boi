@@ -59,6 +59,12 @@ Debug APK:
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
+GitHub Actions uploads the same APK as:
+
+```text
+runner-boi-debug-apk
+```
+
 Install with cable:
 
 ```sh
