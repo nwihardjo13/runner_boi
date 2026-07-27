@@ -16,14 +16,16 @@ void main() {
       find.text('Build the plan. Lock GPS. Do the segment.'),
       findsOneWidget,
     );
-    expect(find.widgetWithText(FilledButton, 'New plan'), findsOneWidget);
+    expect(find.byKey(const Key('quickStartButton')), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'New plan'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'New plan'));
+    await tester.tap(find.byKey(const Key('quickStartButton')));
     await tester.pumpAndSettle();
 
-    expect(find.text('New plan'), findsWidgets);
+    expect(find.text('Plan run'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Run'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'Rest'), findsOneWidget);
+    expect(find.byKey(const Key('startRunButton')), findsOneWidget);
     expect(find.text('Segments'), findsOneWidget);
   });
 }

@@ -38,10 +38,26 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed: () => _openEditor(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('New plan'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            key: const Key('quickStartButton'),
+                            onPressed: () =>
+                                _openEditor(context, startFocused: true),
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Start'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openEditor(context),
+                            icon: const Icon(Icons.add),
+                            label: const Text('New plan'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -78,10 +94,15 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _openEditor(BuildContext context, {WorkoutTemplate? template}) {
+  void _openEditor(
+    BuildContext context, {
+    WorkoutTemplate? template,
+    bool startFocused = false,
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => WorkoutEditorScreen(template: template),
+        builder: (_) =>
+            WorkoutEditorScreen(template: template, startFocused: startFocused),
       ),
     );
   }

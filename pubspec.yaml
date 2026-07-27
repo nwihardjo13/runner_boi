@@ -68,9 +68,9 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: assets/branding/github-avatar.jpg
+  image_path: assets/branding/runner-boi-icon.png
   adaptive_icon_background: "#10130F"
-  adaptive_icon_foreground: assets/branding/github-avatar.jpg
+  adaptive_icon_foreground: assets/branding/runner-boi-icon.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

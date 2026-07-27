@@ -6,13 +6,19 @@ import 'package:uuid/uuid.dart';
 import '../../core/formatters.dart';
 import '../../domain/models.dart';
 import '../providers.dart';
+import '../run/run_screen.dart';
 
 const _uuid = Uuid();
 
 class WorkoutEditorScreen extends ConsumerStatefulWidget {
-  const WorkoutEditorScreen({super.key, this.template});
+  const WorkoutEditorScreen({
+    super.key,
+    this.template,
+    this.startFocused = false,
+  });
 
   final WorkoutTemplate? template;
+  final bool startFocused;
 
   @override
   ConsumerState<WorkoutEditorScreen> createState() =>
@@ -22,6 +28,7 @@ class WorkoutEditorScreen extends ConsumerStatefulWidget {
 class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
   late final TextEditingController _nameController;
   late List<SegmentPlan> _segments;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -45,10 +52,10 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.template == null ? 'New plan' : 'Edit plan'),
+        title: Text(_title),
         actions: [
           TextButton(
-            onPressed: _segments.isEmpty ? null : _save,
+            onPressed: _canSubmit ? _save : null,
             child: const Text('Save'),
           ),
         ],
@@ -122,8 +129,24 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        child: FilledButton.icon(
+          key: const Key('startRunButton'),
+          onPressed: _canSubmit ? _saveAndStart : null,
+          icon: const Icon(Icons.play_arrow),
+          label: Text(_isSaving ? 'Saving...' : 'Start run'),
+        ),
+      ),
     );
   }
+
+  String get _title {
+    if (widget.template != null) return 'Edit plan';
+    return widget.startFocused ? 'Plan run' : 'New plan';
+  }
+
+  bool get _canSubmit => _segments.isNotEmpty && !_isSaving;
 
   Future<void> _addSegment(SegmentKind kind, MeasurementSystem units) async {
     final segment = SegmentPlan(
@@ -172,7 +195,9 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
     setState(() => _segments.addAll(additions));
   }
 
-  Future<void> _save() async {
+  Future<WorkoutTemplate?> _persistTemplate() async {
+    if (_isSaving) return null;
+    setState(() => _isSaving = true);
     final now = DateTime.now();
     final existing = widget.template;
     final template = WorkoutTemplate(
@@ -184,8 +209,25 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
       updatedAt: now,
       segments: _segments,
     );
-    await ref.read(templatesProvider.notifier).save(template);
-    if (mounted) Navigator.of(context).pop();
+    try {
+      await ref.read(templatesProvider.notifier).save(template);
+      return template;
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _save() async {
+    final template = await _persistTemplate();
+    if (template != null && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _saveAndStart() async {
+    final template = await _persistTemplate();
+    if (template == null || !mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => RunScreen(template: template)),
+    );
   }
 }
 

@@ -1,196 +1,118 @@
 # Runner Boi
 
-Runner Boi is a Flutter Android app for building and executing segment-based running plans. It is designed for interval workouts where each segment can target time, distance, or manual advancement, with optional target pace, live pace feedback, and voice cues.
+Flutter Android app for building and running segment-based workouts. Create run/rest segments by time, distance, or manual advance; add optional target pace; then start into GPS lock, countdown, voice cues, and a live pace cockpit.
 
-The repo is production-oriented: app state is separated from persistence and platform services, run data stays local, Android permissions are explicit, and CI includes static analysis, unit tests, and an Android emulator smoke test.
+## Status
 
-## Current Scope
+Personal app, engineered like a public Android repo. MVP is local-first: no accounts, analytics, cloud sync, maps, or import/export.
 
-Runner Boi currently supports:
+## Features
 
-- Saved workout templates with run and rest segments.
-- Segment targets by time, distance, or manual next.
+- Quick flow: tap Start, enter a plan, save-and-start directly.
+- Saved workout templates with run/rest segments.
+- Time, distance, and manual segment targets.
 - Optional exact target pace per segment.
-- Repeat-last-block editing for interval sets.
-- GPS lock gate before starting a run.
-- Live run cockpit with current pace, segment average pace, GPS accuracy, segment elapsed time, and segment distance.
-- Voice cue and countdown before each segment.
-- Manual pause/resume, skip segment, and end run controls.
+- Repeat-last-block editor for intervals.
+- GPS lock before run start.
+- Live cockpit with current pace, segment average pace, GPS accuracy, segment time, and segment distance.
+- Voice segment cues, countdown, pause/resume, skip, and end-run controls.
 - Local run history with per-segment planned vs actual stats.
-- Settings for units, pace display mode, countdown length, voice cues, and music ducking.
+- Persisted settings for units, pace mode, countdown length, voice cues, and audio ducking.
 
-Maps, cloud sync, import/export, account auth, and Play Store release packaging are intentionally out of MVP scope.
-
-## Product Principles
-
-- **Run-first UI:** during a workout, the most important information is current pace, then segment average pace, then remaining/current segment context.
-- **Local-first data:** workout templates, settings, and run history are stored on device.
-- **Explicit permissions:** GPS is requested for pace/distance tracking; foreground location is used while a run is active.
-- **Low-interruption audio:** segment announcements and countdowns are short, with optional audio ducking.
-- **Predictable workouts:** segments advance from clear time, distance, or manual rules.
-
-## Tech Stack
+## Stack
 
 - Flutter + Dart
-- Riverpod for application state and controllers
-- Drift + SQLite for local persistence
-- shared_preferences for persisted settings
-- geolocator / geolocator_android for GPS and Android foreground location
-- flutter_tts + audio_session for voice cues and audio ducking
-- GitHub Actions for Android emulator verification
+- Riverpod for app state/controllers
+- Drift + SQLite for templates and run history
+- shared_preferences for settings
+- geolocator for GPS/foreground location
+- flutter_tts + audio_session for cues and ducking
+- GitHub Actions Android emulator smoke test
 
-## Branding
-
-- Product name: Runner Boi
-- Android/iOS launcher icon source: `assets/branding/github-avatar.jpg`
-- Launcher icons are generated with `flutter_launcher_icons`.
-
-Regenerate launcher icons after changing the source image:
-
-```sh
-dart run flutter_launcher_icons
-```
-
-## Architecture
+## Layout
 
 ```text
-lib/
-  main.dart                         App entry point
-  src/app.dart                      Material app shell and navigation
-  src/core/                         Formatting and unit conversion helpers
-  src/domain/                       Workout, segment, settings, and run models
-  src/data/                         Drift database and repositories
-  src/features/                     Home, workout editor, run, history, settings
-  src/services/                     Location and voice/audio integrations
-  src/theme/                        Dark cockpit visual system
-integration_test/
-  app_smoke_test.dart               Android emulator boot/install UI smoke test
-test/
-  formatters_test.dart              Fast unit coverage for formatting behavior
+lib/src/core/        formatting and unit helpers
+lib/src/domain/      workout, segment, settings, run models
+lib/src/data/        Drift database and repositories
+lib/src/features/    home, editor, run, history, settings screens
+lib/src/services/    location and voice/audio services
+lib/src/theme/       dark cockpit theme
+test/                fast unit tests
+integration_test/    Android smoke test
 ```
-
-Stateful workout behavior lives in Riverpod controllers. Platform-specific services are isolated behind service classes so run logic can be tested without requiring GPS, TTS, or Android framework access.
-
-## Data And Privacy
-
-Runner Boi stores data locally for the MVP:
-
-- Workout templates
-- Run history
-- Segment results
-- User settings
-
-No account system, analytics, cloud sync, or server upload exists in the current app.
-
-## Android Permissions
-
-The Android app declares:
-
-- `ACCESS_COARSE_LOCATION`
-- `ACCESS_FINE_LOCATION`
-- `ACCESS_BACKGROUND_LOCATION`
-- `FOREGROUND_SERVICE`
-- `FOREGROUND_SERVICE_LOCATION`
-- `POST_NOTIFICATIONS`
-- `WAKE_LOCK`
-
-These support live GPS pace tracking, foreground tracking notification, and keeping a run active while the screen is off.
 
 ## Development
 
-Prerequisites:
-
-- Flutter 3.44.7 or compatible stable Flutter
-- Android SDK with platform/build tools installed
-- JDK 17
-
-Install dependencies:
+Prerequisites: Flutter stable, Android SDK, JDK 17.
 
 ```sh
 flutter pub get
-```
-
-Run local checks:
-
-```sh
 flutter analyze
 flutter test
 flutter build apk --debug
 ```
 
-Run on a connected Android device:
+Debug APK:
 
-```sh
-flutter run
+```text
+build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-Install the debug APK manually:
+Install with cable:
 
 ```sh
 adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-## CI
+## Verification
 
-GitHub Actions runs:
+Current local checks:
 
-- Flutter dependency install
 - `flutter analyze`
 - `flutter test`
-- Android API 35 emulator boot
-- Debug APK build/install
-- Integration smoke test against the emulator
+- `flutter build apk --debug`
 
-Current workflow:
+CI also boots an Android emulator, builds/installs the APK, and opens the plan editor:
 
 ```text
 .github/workflows/android-emulator.yml
 ```
 
-Latest verified run:
+## Test Backlog
 
-```text
-https://github.com/nwihardjo13/runner_boi/actions/workflows/android-emulator.yml
-```
+- Run engine: time/distance/manual advancement, pause/resume, skip, end.
+- Pace logic: instant pace, noisy GPS, bad accuracy, stationary samples.
+- Voice: announcements, countdown order, disabled cues, ducking.
+- Persistence: Drift repository tests for templates, runs, deletes, duplicates.
+- Widgets: editor, settings, history, run cockpit states.
+- Goldens: editor and cockpit across compact/large phones.
+- Android integration: create plan -> start run -> end run -> history saved.
+- Field QA: Pixel device GPS, screen-off tracking, Bluetooth audio, notification behavior.
 
-## Testing Strategy
+## Privacy
 
-Current coverage:
+Data stays on device for MVP:
 
-- Unit tests for distance/pace formatting and the manual segment cue phrase.
-- Android emulator smoke test proving the app boots, installs, and opens the plan editor.
+- Workout templates
+- Settings
+- Run history
+- Segment results
 
-Next coverage to add:
+The app currently has no backend, account system, analytics, or cloud upload.
 
-- Run engine unit tests for segment advancement by time, distance, manual next, pause/resume, skip, and end.
-- Pace calculation tests for instant pace, smoothed pace windows, invalid GPS accuracy, and stationary/noisy GPS samples.
-- Voice cue tests for segment announcements, countdown order, disabled voice mode, and audio ducking settings.
-- Drift repository tests using an isolated test database for templates, history, deletes, and duplicate plans.
-- Widget tests for the workout editor, settings persistence, history rendering, and run cockpit states.
-- Golden tests for the run cockpit and editor at small/large phone sizes.
-- Android integration tests for create plan -> start run -> permissions mocked/granted -> end run -> history saved.
-- Manual field tests on a physical phone for GPS accuracy, background tracking, screen-off behavior, Bluetooth audio, and notification behavior.
+## Branding
 
-## Release Readiness
+- App name: Runner Boi
+- Launcher icon source: `assets/branding/runner-boi-icon.png`
+- Original avatar reference: `assets/branding/github-avatar.jpg`
 
-Before public Play Store release, add:
-
-- Signed release build configuration.
-- App icon and adaptive icon pass.
-- Privacy policy and store data-safety declarations.
-- Background location review materials, if background tracking remains enabled.
-- Crash reporting decision and policy.
-- Release build smoke test.
-- Physical device QA matrix.
-- Accessibility pass for large text, contrast, TalkBack labels, and touch targets.
-
-## Useful Commands
+Regenerate icons after changing the source image:
 
 ```sh
-flutter pub get
-flutter analyze
-flutter test
-flutter test integration_test/app_smoke_test.dart -d emulator-5554
-flutter build apk --debug
-adb install -r build/app/outputs/flutter-apk/app-debug.apk
+dart run flutter_launcher_icons
 ```
+
+## License
+
+MIT. See `LICENSE`.
