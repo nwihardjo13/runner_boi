@@ -1,5 +1,7 @@
 # Runner Boi
 
+<img src="assets/branding/runner-boi-icon.png" alt="Runner Boi app icon" width="120">
+
 Flutter Android app for building and running segment-based workouts. Create run/rest segments by time, distance, or manual advance; add optional target pace; then start into GPS lock, countdown, voice cues, and a live pace cockpit.
 
 ## Status
