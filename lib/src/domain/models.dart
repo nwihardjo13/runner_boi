@@ -151,6 +151,18 @@ class WorkoutTemplate {
     required this.segments,
   });
 
+  factory WorkoutTemplate.fromJson(Map<String, Object?> json) {
+    return WorkoutTemplate(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      segments: (json['segments'] as List<Object?>)
+          .map((segment) => SegmentPlan.fromJson(_jsonMap(segment)))
+          .toList(),
+    );
+  }
+
   final String id;
   final String name;
   final DateTime createdAt;
@@ -171,6 +183,16 @@ class WorkoutTemplate {
       updatedAt: updatedAt ?? this.updatedAt,
       segments: segments ?? this.segments,
     );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'segments': segments.map((segment) => segment.toJson()).toList(),
+    };
   }
 }
 
@@ -251,13 +273,93 @@ class RunRecord {
   }
 }
 
+class ActiveRunSnapshot {
+  const ActiveRunSnapshot({
+    required this.workout,
+    required this.phase,
+    required this.capturedAt,
+    this.startedAt,
+    this.segmentIndex = 0,
+    this.elapsedSegmentSeconds = 0,
+    this.elapsedTotalSeconds = 0,
+    this.segmentDistanceMeters = 0,
+    this.totalDistanceMeters = 0,
+    this.currentPaceSecondsPerKm,
+    this.segmentAveragePaceSecondsPerKm,
+    this.allowStartAnyway = false,
+    this.completedSegments = const [],
+  });
+
+  factory ActiveRunSnapshot.fromJson(Map<String, Object?> json) {
+    return ActiveRunSnapshot(
+      workout: WorkoutTemplate.fromJson(_jsonMap(json['workout'])),
+      phase: RunPhase.values.byName(json['phase'] as String),
+      capturedAt: DateTime.parse(json['capturedAt'] as String),
+      startedAt: json['startedAt'] == null
+          ? null
+          : DateTime.parse(json['startedAt'] as String),
+      segmentIndex: (json['segmentIndex'] as num?)?.toInt() ?? 0,
+      elapsedSegmentSeconds:
+          (json['elapsedSegmentSeconds'] as num?)?.toInt() ?? 0,
+      elapsedTotalSeconds: (json['elapsedTotalSeconds'] as num?)?.toInt() ?? 0,
+      segmentDistanceMeters:
+          (json['segmentDistanceMeters'] as num?)?.toDouble() ?? 0,
+      totalDistanceMeters:
+          (json['totalDistanceMeters'] as num?)?.toDouble() ?? 0,
+      currentPaceSecondsPerKm: (json['currentPaceSecondsPerKm'] as num?)
+          ?.toDouble(),
+      segmentAveragePaceSecondsPerKm:
+          (json['segmentAveragePaceSecondsPerKm'] as num?)?.toDouble(),
+      allowStartAnyway: json['allowStartAnyway'] as bool? ?? false,
+      completedSegments:
+          ((json['completedSegments'] as List<Object?>?) ?? const [])
+              .map((segment) => SegmentResult.fromJson(_jsonMap(segment)))
+              .toList(),
+    );
+  }
+
+  final WorkoutTemplate workout;
+  final RunPhase phase;
+  final DateTime capturedAt;
+  final DateTime? startedAt;
+  final int segmentIndex;
+  final int elapsedSegmentSeconds;
+  final int elapsedTotalSeconds;
+  final double segmentDistanceMeters;
+  final double totalDistanceMeters;
+  final double? currentPaceSecondsPerKm;
+  final double? segmentAveragePaceSecondsPerKm;
+  final bool allowStartAnyway;
+  final List<SegmentResult> completedSegments;
+
+  Map<String, Object?> toJson() {
+    return {
+      'workout': workout.toJson(),
+      'phase': phase.name,
+      'capturedAt': capturedAt.toIso8601String(),
+      'startedAt': startedAt?.toIso8601String(),
+      'segmentIndex': segmentIndex,
+      'elapsedSegmentSeconds': elapsedSegmentSeconds,
+      'elapsedTotalSeconds': elapsedTotalSeconds,
+      'segmentDistanceMeters': segmentDistanceMeters,
+      'totalDistanceMeters': totalDistanceMeters,
+      'currentPaceSecondsPerKm': currentPaceSecondsPerKm,
+      'segmentAveragePaceSecondsPerKm': segmentAveragePaceSecondsPerKm,
+      'allowStartAnyway': allowStartAnyway,
+      'completedSegments': completedSegments
+          .map((segment) => segment.toJson())
+          .toList(),
+    };
+  }
+}
+
 String encodeSegments(List<SegmentPlan> segments) {
   return jsonEncode(segments.map((segment) => segment.toJson()).toList());
 }
 
 List<SegmentPlan> decodeSegments(String payload) {
   final raw = jsonDecode(payload) as List<Object?>;
-  return raw.cast<Map<String, Object?>>().map(SegmentPlan.fromJson).toList();
+  return raw.map((segment) => SegmentPlan.fromJson(_jsonMap(segment))).toList();
 }
 
 String encodeSegmentResults(List<SegmentResult> results) {
@@ -266,5 +368,17 @@ String encodeSegmentResults(List<SegmentResult> results) {
 
 List<SegmentResult> decodeSegmentResults(String payload) {
   final raw = jsonDecode(payload) as List<Object?>;
-  return raw.cast<Map<String, Object?>>().map(SegmentResult.fromJson).toList();
+  return raw.map((result) => SegmentResult.fromJson(_jsonMap(result))).toList();
+}
+
+String encodeActiveRunSnapshot(ActiveRunSnapshot snapshot) {
+  return jsonEncode(snapshot.toJson());
+}
+
+ActiveRunSnapshot decodeActiveRunSnapshot(String payload) {
+  return ActiveRunSnapshot.fromJson(_jsonMap(jsonDecode(payload)));
+}
+
+Map<String, Object?> _jsonMap(Object? value) {
+  return Map<String, Object?>.from(value as Map);
 }

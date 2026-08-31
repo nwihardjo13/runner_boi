@@ -7,9 +7,13 @@ import '../../theme/app_theme.dart';
 import '../providers.dart';
 
 class RunScreen extends ConsumerStatefulWidget {
-  const RunScreen({super.key, required this.template});
+  const RunScreen({super.key, required WorkoutTemplate this.template})
+    : resumeExisting = false;
 
-  final WorkoutTemplate template;
+  const RunScreen.resume({super.key}) : template = null, resumeExisting = true;
+
+  final WorkoutTemplate? template;
+  final bool resumeExisting;
 
   @override
   ConsumerState<RunScreen> createState() => _RunScreenState();
@@ -20,7 +24,10 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(runControllerProvider.notifier).prepare(widget.template);
+      final template = widget.template;
+      if (template != null) {
+        ref.read(runControllerProvider.notifier).prepare(template);
+      }
     });
   }
 
@@ -30,13 +37,25 @@ class _RunScreenState extends ConsumerState<RunScreen> {
     final settings = ref.watch(settingsControllerProvider);
     final units = settings.value?.measurementSystem ?? MeasurementSystem.metric;
 
+    if (widget.resumeExisting && !run.hasRecoverableSession) {
+      return const _NoRecoveredRun();
+    }
+
     return PopScope(
-      canPop: !run.isActive,
+      canPop: run.phase == RunPhase.idle || run.phase == RunPhase.complete,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop || !run.isActive) return;
-        final end = await _confirmEnd(context);
-        if (end && context.mounted) {
-          await ref.read(runControllerProvider.notifier).endRun();
+        if (didPop) return;
+        final controller = ref.read(runControllerProvider.notifier);
+        if (run.needsEndConfirmation) {
+          final end = await _confirmEnd(context);
+          if (end && context.mounted) {
+            await controller.endRun();
+            if (context.mounted) Navigator.of(context).pop();
+          }
+          return;
+        }
+        if (run.phase == RunPhase.gpsLock || run.phase == RunPhase.countdown) {
+          await controller.reset();
           if (context.mounted) Navigator.of(context).pop();
         }
       },
@@ -103,7 +122,10 @@ class _GpsLock extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         IconButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () async {
+            await ref.read(runControllerProvider.notifier).reset();
+            if (context.mounted) Navigator.of(context).pop();
+          },
           icon: const Icon(Icons.close),
           tooltip: 'Close',
         ),
@@ -490,14 +512,50 @@ class _Complete extends ConsumerWidget {
         ),
         const Spacer(),
         FilledButton.icon(
-          onPressed: () {
-            ref.read(runControllerProvider.notifier).reset();
-            Navigator.of(context).pop();
+          onPressed: () async {
+            await ref.read(runControllerProvider.notifier).reset();
+            if (context.mounted) Navigator.of(context).pop();
           },
           icon: const Icon(Icons.check),
           label: const Text('Done'),
         ),
       ],
+    );
+  }
+}
+
+class _NoRecoveredRun extends StatelessWidget {
+  const _NoRecoveredRun();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close),
+                tooltip: 'Close',
+              ),
+              const Spacer(),
+              Text(
+                'NO RUN FOUND',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Nothing to recover',
+                style: Theme.of(context).textTheme.headlineLarge,
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

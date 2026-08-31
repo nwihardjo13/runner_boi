@@ -15,6 +15,7 @@ class HomeScreen extends ConsumerWidget {
     final templates = ref.watch(templatesProvider);
     final settings = ref.watch(settingsControllerProvider);
     final units = settings.value?.measurementSystem ?? MeasurementSystem.metric;
+    final run = ref.watch(runControllerProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -59,6 +60,10 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                    if (run.hasRecoverableSession) ...[
+                      const SizedBox(height: 16),
+                      _ActiveRunCard(run: run, units: units),
+                    ],
                   ],
                 ),
               ),
@@ -105,6 +110,122 @@ class HomeScreen extends ConsumerWidget {
             WorkoutEditorScreen(template: template, startFocused: startFocused),
       ),
     );
+  }
+}
+
+class _ActiveRunCard extends ConsumerWidget {
+  const _ActiveRunCard({required this.run, required this.units});
+
+  final RunState run;
+  final MeasurementSystem units;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final segment = run.currentSegment;
+    final template = run.workout!;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.restore,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Recover run',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  _phaseLabel(run.phase),
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(template.name, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              [
+                '${run.segmentIndex + 1}/${template.segments.length}',
+                if (segment != null) segmentCue(segment, units),
+                formatDurationClock(run.elapsedTotalSeconds),
+                formatDistance(run.totalDistanceMeters, units),
+              ].join(' · '),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RunScreen.resume(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Resume'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final discard = await _confirmDiscard(context);
+                    if (discard && context.mounted) {
+                      await ref.read(runControllerProvider.notifier).reset();
+                    }
+                  },
+                  icon: const Icon(Icons.close),
+                  label: const Text('Discard'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _phaseLabel(RunPhase phase) {
+    return switch (phase) {
+      RunPhase.gpsLock => 'GPS',
+      RunPhase.countdown => 'COUNTDOWN',
+      RunPhase.running => 'LIVE',
+      RunPhase.paused => 'PAUSED',
+      RunPhase.idle || RunPhase.complete => '',
+    };
+  }
+
+  Future<bool> _confirmDiscard(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Discard recovered run?'),
+            content: const Text('This removes the in-progress run snapshot.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Discard'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 }
 

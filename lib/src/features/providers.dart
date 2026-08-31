@@ -46,6 +46,13 @@ final settingsRepositoryProvider = FutureProvider<SettingsRepository>((
   return SettingsRepository(prefs, ref.watch(localeProvider));
 });
 
+final activeRunRepositoryProvider = FutureProvider<ActiveRunRepository>((
+  ref,
+) async {
+  final prefs = await ref.watch(sharedPreferencesProvider.future);
+  return ActiveRunRepository(prefs);
+});
+
 final settingsControllerProvider =
     AsyncNotifierProvider<SettingsController, AppSettings>(
       SettingsController.new,
@@ -215,6 +222,10 @@ class RunState {
 
   bool get isActive => phase == RunPhase.running || phase == RunPhase.paused;
   bool get isFinished => phase == RunPhase.complete;
+  bool get needsEndConfirmation =>
+      isActive || (phase == RunPhase.countdown && startedAt != null);
+  bool get hasRecoverableSession =>
+      workout != null && phase != RunPhase.idle && phase != RunPhase.complete;
 
   RunState copyWith({
     RunPhase? phase,
@@ -265,30 +276,32 @@ class RunController extends Notifier<RunState> {
   Timer? _gpsLockTimer;
   StreamSubscription<LocationSample>? _locationSub;
   LocationSample? _lastSample;
+  Future<void> _activeRunPersistence = Future.value();
   final _paceWindow = Queue<_PacePoint>();
 
   @override
   RunState build() {
     ref.onDispose(_disposeTracking);
+    unawaited(_restoreActiveRun());
     return RunState.idle();
   }
 
   Future<void> prepare(WorkoutTemplate workout) async {
     _disposeTracking();
-    state = RunState(
-      phase: RunPhase.gpsLock,
-      workout: workout,
-      statusMessage: 'Checking GPS',
+    _setState(
+      RunState(
+        phase: RunPhase.gpsLock,
+        workout: workout,
+        statusMessage: 'Checking GPS',
+      ),
     );
     await refreshGps();
-    _gpsLockTimer = Timer(const Duration(seconds: 30), () {
-      state = state.copyWith(allowStartAnyway: true);
-    });
+    _scheduleGpsFallback();
   }
 
   Future<void> refreshGps() async {
     final fix = await ref.read(locationServiceProvider).currentFix();
-    state = state.copyWith(gpsFix: fix, statusMessage: fix.message);
+    _setState(state.copyWith(gpsFix: fix, statusMessage: fix.message));
   }
 
   Future<void> start() async {
@@ -297,9 +310,8 @@ class RunController extends Notifier<RunState> {
     if (workout == null || segment == null) return;
     _gpsLockTimer?.cancel();
     final settings = await ref.read(settingsControllerProvider.future);
-    state = state.copyWith(
-      phase: RunPhase.countdown,
-      statusMessage: 'Next segment',
+    _setState(
+      state.copyWith(phase: RunPhase.countdown, statusMessage: 'Next segment'),
     );
     if (settings.voiceCuesEnabled) {
       final voice = ref.read(voiceServiceProvider);
@@ -315,11 +327,13 @@ class RunController extends Notifier<RunState> {
     } else {
       await Future<void>.delayed(Duration(seconds: settings.countdownSeconds));
     }
-    state = state.copyWith(
-      phase: RunPhase.running,
-      startedAt: state.startedAt ?? DateTime.now(),
-      statusMessage: 'Running',
-      clearPace: true,
+    _setState(
+      state.copyWith(
+        phase: RunPhase.running,
+        startedAt: state.startedAt ?? DateTime.now(),
+        statusMessage: 'Running',
+        clearPace: true,
+      ),
     );
     _startTracking(settings);
   }
@@ -328,7 +342,7 @@ class RunController extends Notifier<RunState> {
     if (state.phase != RunPhase.running) return;
     _timer?.cancel();
     _locationSub?.pause();
-    state = state.copyWith(phase: RunPhase.paused, statusMessage: 'Paused');
+    _setState(state.copyWith(phase: RunPhase.paused, statusMessage: 'Paused'));
   }
 
   Future<void> resume() async {
@@ -336,7 +350,9 @@ class RunController extends Notifier<RunState> {
     final settings = await ref.read(settingsControllerProvider.future);
     _locationSub?.resume();
     _startTimer();
-    state = state.copyWith(phase: RunPhase.running, statusMessage: 'Running');
+    _setState(
+      state.copyWith(phase: RunPhase.running, statusMessage: 'Running'),
+    );
     if (_locationSub == null) {
       _startTracking(settings);
     }
@@ -350,7 +366,7 @@ class RunController extends Notifier<RunState> {
   Future<void> endRun() async {
     final workout = state.workout;
     if (workout == null || state.startedAt == null) {
-      state = RunState.idle();
+      await reset();
       return;
     }
     final results = [...state.completedSegments];
@@ -359,16 +375,20 @@ class RunController extends Notifier<RunState> {
     }
     await _saveRun(results);
     _disposeTracking();
-    state = state.copyWith(
-      phase: RunPhase.complete,
-      completedSegments: results,
-      statusMessage: 'Run saved',
+    _setState(
+      state.copyWith(
+        phase: RunPhase.complete,
+        completedSegments: results,
+        statusMessage: 'Run saved',
+      ),
     );
+    await _persistActiveRunNow();
   }
 
-  void reset() {
+  Future<void> reset() async {
     _disposeTracking();
-    state = RunState.idle();
+    _setState(RunState.idle());
+    await _persistActiveRunNow();
   }
 
   void _startTracking(AppSettings settings) {
@@ -378,7 +398,7 @@ class RunController extends Notifier<RunState> {
         .listen(
           (sample) => _onLocation(sample, settings),
           onError: (_) {
-            state = state.copyWith(statusMessage: 'GPS stream interrupted');
+            _setState(state.copyWith(statusMessage: 'GPS stream interrupted'));
           },
         );
     _startTimer();
@@ -389,14 +409,115 @@ class RunController extends Notifier<RunState> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
+  void _scheduleGpsFallback() {
+    _gpsLockTimer?.cancel();
+    _gpsLockTimer = Timer(const Duration(seconds: 30), () {
+      if (state.phase != RunPhase.gpsLock) return;
+      _setState(state.copyWith(allowStartAnyway: true));
+    });
+  }
+
+  Future<void> _restoreActiveRun() async {
+    final repository = await ref.read(activeRunRepositoryProvider.future);
+    final snapshot = await repository.load();
+    if (snapshot == null || state.phase != RunPhase.idle) return;
+    if (snapshot.phase == RunPhase.idle ||
+        snapshot.phase == RunPhase.complete ||
+        snapshot.workout.segments.isEmpty) {
+      await repository.clear();
+      return;
+    }
+
+    final segmentIndex = min(
+      max(snapshot.segmentIndex, 0),
+      snapshot.workout.segments.length - 1,
+    );
+    final restoredPhase =
+        snapshot.startedAt == null || snapshot.phase == RunPhase.gpsLock
+        ? RunPhase.gpsLock
+        : RunPhase.paused;
+    _setState(
+      RunState(
+        phase: restoredPhase,
+        workout: snapshot.workout,
+        startedAt: snapshot.startedAt,
+        segmentIndex: segmentIndex,
+        elapsedSegmentSeconds: snapshot.elapsedSegmentSeconds,
+        elapsedTotalSeconds: snapshot.elapsedTotalSeconds,
+        segmentDistanceMeters: snapshot.segmentDistanceMeters,
+        totalDistanceMeters: snapshot.totalDistanceMeters,
+        segmentAveragePaceSecondsPerKm: snapshot.segmentAveragePaceSecondsPerKm,
+        allowStartAnyway: snapshot.allowStartAnyway,
+        completedSegments: snapshot.completedSegments,
+        statusMessage: restoredPhase == RunPhase.paused
+            ? 'Recovered paused run'
+            : 'Recovered run',
+      ),
+    );
+    if (restoredPhase == RunPhase.gpsLock && !snapshot.allowStartAnyway) {
+      _scheduleGpsFallback();
+    }
+  }
+
+  void _setState(RunState next, {bool persist = true}) {
+    state = next;
+    if (persist) _queueActiveRunPersist();
+  }
+
+  void _queueActiveRunPersist() {
+    final snapshot = _activeRunSnapshot();
+    _activeRunPersistence = _activeRunPersistence
+        .catchError((Object error, StackTrace stackTrace) {})
+        .then((_) => _writeActiveRunSnapshot(snapshot));
+    unawaited(_activeRunPersistence);
+  }
+
+  Future<void> _persistActiveRunNow() {
+    final snapshot = _activeRunSnapshot();
+    _activeRunPersistence = _activeRunPersistence
+        .catchError((Object error, StackTrace stackTrace) {})
+        .then((_) => _writeActiveRunSnapshot(snapshot));
+    return _activeRunPersistence;
+  }
+
+  Future<void> _writeActiveRunSnapshot(ActiveRunSnapshot? snapshot) async {
+    final repository = await ref.read(activeRunRepositoryProvider.future);
+    if (snapshot == null) {
+      await repository.clear();
+      return;
+    }
+    await repository.save(snapshot);
+  }
+
+  ActiveRunSnapshot? _activeRunSnapshot() {
+    if (!state.hasRecoverableSession) return null;
+    return ActiveRunSnapshot(
+      workout: state.workout!,
+      phase: state.phase,
+      capturedAt: DateTime.now(),
+      startedAt: state.startedAt,
+      segmentIndex: state.segmentIndex,
+      elapsedSegmentSeconds: state.elapsedSegmentSeconds,
+      elapsedTotalSeconds: state.elapsedTotalSeconds,
+      segmentDistanceMeters: state.segmentDistanceMeters,
+      totalDistanceMeters: state.totalDistanceMeters,
+      currentPaceSecondsPerKm: state.currentPaceSecondsPerKm,
+      segmentAveragePaceSecondsPerKm: state.segmentAveragePaceSecondsPerKm,
+      allowStartAnyway: state.allowStartAnyway,
+      completedSegments: state.completedSegments,
+    );
+  }
+
   void _tick() {
     if (state.phase != RunPhase.running) return;
-    state = state.copyWith(
-      elapsedSegmentSeconds: state.elapsedSegmentSeconds + 1,
-      elapsedTotalSeconds: state.elapsedTotalSeconds + 1,
-      segmentAveragePaceSecondsPerKm: _averagePace(
-        state.elapsedSegmentSeconds + 1,
-        state.segmentDistanceMeters,
+    _setState(
+      state.copyWith(
+        elapsedSegmentSeconds: state.elapsedSegmentSeconds + 1,
+        elapsedTotalSeconds: state.elapsedTotalSeconds + 1,
+        segmentAveragePaceSecondsPerKm: _averagePace(
+          state.elapsedSegmentSeconds + 1,
+          state.segmentDistanceMeters,
+        ),
       ),
     );
     final segment = state.currentSegment;
@@ -435,14 +556,16 @@ class RunController extends Notifier<RunState> {
 
     final segmentDistance = state.segmentDistanceMeters + addedDistance;
     final totalDistance = state.totalDistanceMeters + addedDistance;
-    state = state.copyWith(
-      gpsFix: fix,
-      segmentDistanceMeters: segmentDistance,
-      totalDistanceMeters: totalDistance,
-      currentPaceSecondsPerKm: _displayPace(settings.paceDisplayMode, sample),
-      segmentAveragePaceSecondsPerKm: _averagePace(
-        state.elapsedSegmentSeconds,
-        segmentDistance,
+    _setState(
+      state.copyWith(
+        gpsFix: fix,
+        segmentDistanceMeters: segmentDistance,
+        totalDistanceMeters: totalDistance,
+        currentPaceSecondsPerKm: _displayPace(settings.paceDisplayMode, sample),
+        segmentAveragePaceSecondsPerKm: _averagePace(
+          state.elapsedSegmentSeconds,
+          segmentDistance,
+        ),
       ),
     );
 
@@ -485,22 +608,27 @@ class RunController extends Notifier<RunState> {
     if (nextIndex >= workout.segments.length) {
       await _saveRun(results);
       _disposeTracking();
-      state = state.copyWith(
-        phase: RunPhase.complete,
-        completedSegments: results,
-        statusMessage: manualAdvance ? 'Skipped and saved' : 'Run saved',
+      _setState(
+        state.copyWith(
+          phase: RunPhase.complete,
+          completedSegments: results,
+          statusMessage: manualAdvance ? 'Skipped and saved' : 'Run saved',
+        ),
       );
+      await _persistActiveRunNow();
       return;
     }
 
-    state = state.copyWith(
-      phase: RunPhase.countdown,
-      segmentIndex: nextIndex,
-      elapsedSegmentSeconds: 0,
-      segmentDistanceMeters: 0,
-      completedSegments: results,
-      clearPace: true,
-      statusMessage: 'Next segment',
+    _setState(
+      state.copyWith(
+        phase: RunPhase.countdown,
+        segmentIndex: nextIndex,
+        elapsedSegmentSeconds: 0,
+        segmentDistanceMeters: 0,
+        completedSegments: results,
+        clearPace: true,
+        statusMessage: 'Next segment',
+      ),
     );
     await start();
   }

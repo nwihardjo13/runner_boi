@@ -37,6 +37,7 @@ build/app/outputs/flutter-apk/app-debug.apk
 - GPS lock before run start.
 - Live cockpit with current pace, segment average pace, GPS accuracy, segment time, and segment distance.
 - Voice segment cues, countdown, pause/resume, skip, and end-run controls.
+- Recoverable active run snapshot if the app process is closed mid-run.
 - Local run history with per-segment planned vs actual stats.
 - Persisted settings for units, pace mode, countdown length, voice cues, and audio ducking.
 
@@ -78,7 +79,7 @@ lib/src/data/        Drift database and repositories
 lib/src/features/    home, editor, run, history, settings screens
 lib/src/services/    location and voice/audio services
 lib/src/theme/       dark cockpit theme
-test/                fast unit tests
+test/                fast unit and persistence tests
 integration_test/    Android smoke test
 ```
 

@@ -4,6 +4,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/models.dart';
 import 'app_database.dart';
 
+class ActiveRunRepository {
+  ActiveRunRepository(this._prefs);
+
+  static const _snapshotKey = 'active_run_snapshot_v1';
+
+  final SharedPreferences _prefs;
+
+  Future<ActiveRunSnapshot?> load() async {
+    final payload = _prefs.getString(_snapshotKey);
+    if (payload == null) return null;
+    try {
+      return decodeActiveRunSnapshot(payload);
+    } catch (_) {
+      await _prefs.remove(_snapshotKey);
+      return null;
+    }
+  }
+
+  Future<void> save(ActiveRunSnapshot snapshot) async {
+    await _prefs.setString(_snapshotKey, encodeActiveRunSnapshot(snapshot));
+  }
+
+  Future<void> clear() async {
+    await _prefs.remove(_snapshotKey);
+  }
+}
+
 class WorkoutRepository {
   WorkoutRepository(this._db);
 
