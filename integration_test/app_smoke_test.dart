@@ -6,8 +6,8 @@ import 'package:runner_boi/main.dart' as app;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('boots and opens the plan editor', (tester) async {
-    app.main();
+  testWidgets('boots, opens the editor, and shows diagnostics', (tester) async {
+    await app.main();
 
     await tester.pumpAndSettle();
 
@@ -27,11 +27,8 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'Rest'), findsOneWidget);
     expect(find.byKey(const Key('startRunButton')), findsOneWidget);
     expect(find.text('Segments'), findsOneWidget);
-  });
 
-  testWidgets('opens settings diagnostics export surface', (tester) async {
-    app.main();
-
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Settings'));
