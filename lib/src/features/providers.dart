@@ -12,6 +12,7 @@ import '../data/app_database.dart';
 import '../data/repositories.dart';
 import '../domain/models.dart';
 import '../services/location_service.dart';
+import '../services/log_service.dart';
 import '../services/voice_service.dart';
 
 const _uuid = Uuid();
@@ -39,6 +40,13 @@ final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
   return SharedPreferences.getInstance();
 });
 
+final logServiceProvider = Provider<AppLogService>((ref) {
+  final service = AppLogService();
+  unawaited(service.start());
+  ref.onDispose(() => unawaited(service.dispose()));
+  return service;
+});
+
 final settingsRepositoryProvider = FutureProvider<SettingsRepository>((
   ref,
 ) async {
@@ -62,13 +70,47 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   @override
   Future<AppSettings> build() async {
     final repository = await ref.watch(settingsRepositoryProvider.future);
-    return repository.load();
+    final settings = repository.load();
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'settings',
+            'Settings loaded',
+            data: _settingsLogData(settings),
+          ),
+    );
+    return settings;
   }
 
   Future<void> saveSettings(AppSettings settings) async {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'settings',
+            'Settings save requested',
+            data: _settingsLogData(settings),
+          ),
+    );
     state = AsyncData(settings);
     final repository = await ref.read(settingsRepositoryProvider.future);
     await repository.save(settings);
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info('settings', 'Settings saved', data: _settingsLogData(settings)),
+    );
+  }
+
+  Map<String, Object?> _settingsLogData(AppSettings settings) {
+    return {
+      'measurementSystem': settings.measurementSystem,
+      'paceDisplayMode': settings.paceDisplayMode,
+      'countdownSeconds': settings.countdownSeconds,
+      'voiceCuesEnabled': settings.voiceCuesEnabled,
+      'duckAudio': settings.duckAudio,
+    };
   }
 }
 
@@ -82,9 +124,27 @@ class TemplatesController extends AsyncNotifier<List<WorkoutTemplate>> {
   Future<List<WorkoutTemplate>> build() async {
     final repository = ref.watch(workoutRepositoryProvider);
     final templates = await repository.listTemplates();
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'templates',
+            'Templates loaded',
+            data: {'count': templates.length},
+          ),
+    );
     if (templates.isNotEmpty) return templates;
     final starter = _starterTemplate();
     await repository.saveTemplate(starter);
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'templates',
+            'Starter template created',
+            data: _workoutLogData(starter),
+          ),
+    );
     return [starter];
   }
 
@@ -92,29 +152,69 @@ class TemplatesController extends AsyncNotifier<List<WorkoutTemplate>> {
     final repository = ref.read(workoutRepositoryProvider);
     final now = DateTime.now();
     final next = template.copyWith(updatedAt: now);
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'templates',
+            'Template save requested',
+            data: _workoutLogData(next),
+          ),
+    );
     await repository.saveTemplate(next);
     state = AsyncData(await repository.listTemplates());
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info('templates', 'Template saved', data: _workoutLogData(next)),
+    );
   }
 
   Future<void> delete(String id) async {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'templates',
+            'Template delete requested',
+            data: {'templateId': id},
+          ),
+    );
     final repository = ref.read(workoutRepositoryProvider);
     await repository.deleteTemplate(id);
     state = AsyncData(await repository.listTemplates());
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info('templates', 'Template deleted', data: {'templateId': id}),
+    );
   }
 
   Future<void> duplicate(WorkoutTemplate template) async {
     final now = DateTime.now();
-    await save(
-      template.copyWith(
-        id: _uuid.v4(),
-        name: '${template.name} copy',
-        createdAt: now,
-        updatedAt: now,
-        segments: template.segments
-            .map((segment) => segment.copyWith(id: _uuid.v4()))
-            .toList(),
-      ),
+    final duplicate = template.copyWith(
+      id: _uuid.v4(),
+      name: '${template.name} copy',
+      createdAt: now,
+      updatedAt: now,
+      segments: template.segments
+          .map((segment) => segment.copyWith(id: _uuid.v4()))
+          .toList(),
     );
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'templates',
+            'Template duplicate requested',
+            data: {
+              'sourceTemplateId': template.id,
+              'duplicateTemplateId': duplicate.id,
+              'segmentCount': duplicate.segments.length,
+            },
+          ),
+    );
+    await save(duplicate);
   }
 
   WorkoutTemplate _starterTemplate() {
@@ -146,6 +246,17 @@ class TemplatesController extends AsyncNotifier<List<WorkoutTemplate>> {
       ],
     );
   }
+
+  Map<String, Object?> _workoutLogData(WorkoutTemplate workout) {
+    return {
+      'workoutId': workout.id,
+      'name': workout.name,
+      'segmentCount': workout.segments.length,
+      'createdAt': workout.createdAt,
+      'updatedAt': workout.updatedAt,
+      'segments': workout.segments.map(_segmentLogData).toList(),
+    };
+  }
 }
 
 final runHistoryProvider = StreamProvider<List<RunRecord>>((ref) {
@@ -153,11 +264,11 @@ final runHistoryProvider = StreamProvider<List<RunRecord>>((ref) {
 });
 
 final locationServiceProvider = Provider<LocationService>((ref) {
-  return LocationService();
+  return LocationService(ref.watch(logServiceProvider));
 });
 
 final voiceServiceProvider = Provider<VoiceService>((ref) {
-  final service = VoiceService();
+  final service = VoiceService(ref.watch(logServiceProvider));
   service.configure();
   ref.onDispose(service.stop);
   return service;
@@ -282,11 +393,13 @@ class RunController extends Notifier<RunState> {
   @override
   RunState build() {
     ref.onDispose(_disposeTracking);
+    _logInfo('Run controller initialized');
     unawaited(_restoreActiveRun());
     return RunState.idle();
   }
 
   Future<void> prepare(WorkoutTemplate workout) async {
+    _logInfo('Preparing workout run', data: _workoutLogData(workout));
     _disposeTracking();
     _setState(
       RunState(
@@ -300,16 +413,39 @@ class RunController extends Notifier<RunState> {
   }
 
   Future<void> refreshGps() async {
-    final fix = await ref.read(locationServiceProvider).currentFix();
-    _setState(state.copyWith(gpsFix: fix, statusMessage: fix.message));
+    _logDebug('Refreshing GPS fix');
+    try {
+      final fix = await ref.read(locationServiceProvider).currentFix();
+      _logInfo('GPS fix refreshed', data: _gpsFixLogData(fix));
+      _setState(state.copyWith(gpsFix: fix, statusMessage: fix.message));
+    } catch (error, stackTrace) {
+      _logError('GPS refresh failed', error: error, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 
   Future<void> start() async {
     final workout = state.workout;
     final segment = state.currentSegment;
-    if (workout == null || segment == null) return;
+    if (workout == null || segment == null) {
+      _logWarning(
+        'Start ignored because workout or segment is missing',
+        data: _runStateLogData(state),
+      );
+      return;
+    }
     _gpsLockTimer?.cancel();
     final settings = await ref.read(settingsControllerProvider.future);
+    _logInfo(
+      'Starting segment countdown',
+      data: {
+        ..._runStateLogData(state),
+        'segment': _segmentLogData(segment),
+        'voiceCuesEnabled': settings.voiceCuesEnabled,
+        'duckAudio': settings.duckAudio,
+        'countdownSeconds': settings.countdownSeconds,
+      },
+    );
     _setState(
       state.copyWith(phase: RunPhase.countdown, statusMessage: 'Next segment'),
     );
@@ -335,18 +471,35 @@ class RunController extends Notifier<RunState> {
         clearPace: true,
       ),
     );
+    _logInfo(
+      'Segment running',
+      data: {..._runStateLogData(state), 'segment': _segmentLogData(segment)},
+    );
     _startTracking(settings);
   }
 
   void pause() {
-    if (state.phase != RunPhase.running) return;
+    if (state.phase != RunPhase.running) {
+      _logWarning(
+        'Pause ignored because run is not active',
+        data: _runStateLogData(state),
+      );
+      return;
+    }
     _timer?.cancel();
     _locationSub?.pause();
     _setState(state.copyWith(phase: RunPhase.paused, statusMessage: 'Paused'));
+    _logInfo('Run paused', data: _runStateLogData(state));
   }
 
   Future<void> resume() async {
-    if (state.phase != RunPhase.paused) return;
+    if (state.phase != RunPhase.paused) {
+      _logWarning(
+        'Resume ignored because run is not paused',
+        data: _runStateLogData(state),
+      );
+      return;
+    }
     final settings = await ref.read(settingsControllerProvider.future);
     _locationSub?.resume();
     _startTimer();
@@ -356,19 +509,32 @@ class RunController extends Notifier<RunState> {
     if (_locationSub == null) {
       _startTracking(settings);
     }
+    _logInfo('Run resumed', data: _runStateLogData(state));
   }
 
   Future<void> skipSegment() async {
-    if (state.currentSegment == null) return;
+    if (state.currentSegment == null) {
+      _logWarning(
+        'Skip ignored because there is no current segment',
+        data: _runStateLogData(state),
+      );
+      return;
+    }
+    _logInfo('Manual segment skip requested', data: _runStateLogData(state));
     await _completeCurrentSegment(manualAdvance: true);
   }
 
   Future<void> endRun() async {
     final workout = state.workout;
     if (workout == null || state.startedAt == null) {
+      _logInfo(
+        'End run requested before run start; resetting',
+        data: _runStateLogData(state),
+      );
       await reset();
       return;
     }
+    _logInfo('End run requested', data: _runStateLogData(state));
     final results = [...state.completedSegments];
     if (state.currentSegment != null && state.elapsedSegmentSeconds > 0) {
       results.add(_currentResult());
@@ -383,21 +549,42 @@ class RunController extends Notifier<RunState> {
       ),
     );
     await _persistActiveRunNow();
+    _logInfo(
+      'Run ended and saved',
+      data: {
+        ..._runStateLogData(state),
+        'segmentResults': results.map(_segmentResultLogData).toList(),
+      },
+    );
   }
 
   Future<void> reset() async {
+    _logInfo('Run reset requested', data: _runStateLogData(state));
     _disposeTracking();
     _setState(RunState.idle());
     await _persistActiveRunNow();
+    _logInfo('Run reset complete', data: _runStateLogData(state));
   }
 
   void _startTracking(AppSettings settings) {
+    _logInfo(
+      'Starting tracking loop',
+      data: {
+        ..._runStateLogData(state),
+        'paceDisplayMode': settings.paceDisplayMode,
+      },
+    );
     _locationSub ??= ref
         .read(locationServiceProvider)
         .samples()
         .listen(
           (sample) => _onLocation(sample, settings),
-          onError: (_) {
+          onError: (Object error, StackTrace stackTrace) {
+            _logError(
+              'GPS stream interrupted',
+              error: error,
+              stackTrace: stackTrace,
+            );
             _setState(state.copyWith(statusMessage: 'GPS stream interrupted'));
           },
         );
@@ -407,24 +594,44 @@ class RunController extends Notifier<RunState> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    _logDebug('Run timer started', data: _runStateLogData(state));
   }
 
   void _scheduleGpsFallback() {
     _gpsLockTimer?.cancel();
+    _logDebug('GPS fallback timer scheduled');
     _gpsLockTimer = Timer(const Duration(seconds: 30), () {
       if (state.phase != RunPhase.gpsLock) return;
       _setState(state.copyWith(allowStartAnyway: true));
+      _logWarning(
+        'GPS fallback enabled after timeout',
+        data: _runStateLogData(state),
+      );
     });
   }
 
   Future<void> _restoreActiveRun() async {
     final repository = await ref.read(activeRunRepositoryProvider.future);
     final snapshot = await repository.load();
-    if (snapshot == null || state.phase != RunPhase.idle) return;
+    if (snapshot == null) {
+      _logDebug('No active run snapshot found');
+      return;
+    }
+    if (state.phase != RunPhase.idle) {
+      _logWarning(
+        'Active run snapshot ignored because controller is not idle',
+        data: _runStateLogData(state),
+      );
+      return;
+    }
     if (snapshot.phase == RunPhase.idle ||
         snapshot.phase == RunPhase.complete ||
         snapshot.workout.segments.isEmpty) {
       await repository.clear();
+      _logWarning(
+        'Invalid active run snapshot cleared',
+        data: _activeRunSnapshotLogData(snapshot),
+      );
       return;
     }
 
@@ -454,13 +661,30 @@ class RunController extends Notifier<RunState> {
             : 'Recovered run',
       ),
     );
+    _logInfo(
+      'Active run snapshot restored',
+      data: {
+        'snapshot': _activeRunSnapshotLogData(snapshot),
+        'restoredState': _runStateLogData(state),
+      },
+    );
     if (restoredPhase == RunPhase.gpsLock && !snapshot.allowStartAnyway) {
       _scheduleGpsFallback();
     }
   }
 
   void _setState(RunState next, {bool persist = true}) {
+    final previous = state;
     state = next;
+    _logDebug(
+      'Run state updated',
+      data: {
+        'fromPhase': previous.phase,
+        'toPhase': next.phase,
+        'persist': persist,
+        'state': _runStateLogData(next),
+      },
+    );
     if (persist) _queueActiveRunPersist();
   }
 
@@ -484,9 +708,14 @@ class RunController extends Notifier<RunState> {
     final repository = await ref.read(activeRunRepositoryProvider.future);
     if (snapshot == null) {
       await repository.clear();
+      _logDebug('Active run snapshot cleared');
       return;
     }
     await repository.save(snapshot);
+    _logDebug(
+      'Active run snapshot saved',
+      data: _activeRunSnapshotLogData(snapshot),
+    );
   }
 
   ActiveRunSnapshot? _activeRunSnapshot() {
@@ -510,20 +739,37 @@ class RunController extends Notifier<RunState> {
 
   void _tick() {
     if (state.phase != RunPhase.running) return;
+    final nextElapsedSegmentSeconds = state.elapsedSegmentSeconds + 1;
+    final nextElapsedTotalSeconds = state.elapsedTotalSeconds + 1;
     _setState(
       state.copyWith(
-        elapsedSegmentSeconds: state.elapsedSegmentSeconds + 1,
-        elapsedTotalSeconds: state.elapsedTotalSeconds + 1,
+        elapsedSegmentSeconds: nextElapsedSegmentSeconds,
+        elapsedTotalSeconds: nextElapsedTotalSeconds,
         segmentAveragePaceSecondsPerKm: _averagePace(
-          state.elapsedSegmentSeconds + 1,
+          nextElapsedSegmentSeconds,
           state.segmentDistanceMeters,
         ),
       ),
+    );
+    _logDebug(
+      'Run timer tick',
+      data: {
+        ..._runStateLogData(state),
+        'nextElapsedSegmentSeconds': nextElapsedSegmentSeconds,
+        'nextElapsedTotalSeconds': nextElapsedTotalSeconds,
+      },
     );
     final segment = state.currentSegment;
     if (segment == null) return;
     if (segment.targetType == SegmentTargetType.time &&
         state.elapsedSegmentSeconds >= (segment.durationSeconds ?? 0)) {
+      _logInfo(
+        'Time segment target reached',
+        data: {
+          ..._runStateLogData(state),
+          'targetDurationSeconds': segment.durationSeconds,
+        },
+      );
       unawaited(_completeCurrentSegment());
     }
   }
@@ -532,12 +778,23 @@ class RunController extends Notifier<RunState> {
     if (state.phase != RunPhase.running) return;
     final fix = GpsFix.fromAccuracy(sample.accuracyMeters);
     var addedDistance = 0.0;
-    if (_lastSample != null && sample.accuracyMeters <= 50) {
+    double? rawDistanceMeters;
+    String distanceDecision;
+    final previousSample = _lastSample;
+    if (previousSample == null) {
+      distanceDecision = 'first_sample';
+    } else if (sample.accuracyMeters > 50) {
+      distanceDecision = 'rejected_accuracy_over_50m';
+    } else {
       final distance = ref
           .read(locationServiceProvider)
-          .distanceBetween(_lastSample!, sample);
+          .distanceBetween(previousSample, sample);
+      rawDistanceMeters = distance;
       if (distance <= 100) {
         addedDistance = distance;
+        distanceDecision = 'accepted';
+      } else {
+        distanceDecision = 'rejected_distance_jump_over_100m';
       }
     }
     _lastSample = sample;
@@ -556,22 +813,63 @@ class RunController extends Notifier<RunState> {
 
     final segmentDistance = state.segmentDistanceMeters + addedDistance;
     final totalDistance = state.totalDistanceMeters + addedDistance;
+    final displayPace = _displayPace(settings.paceDisplayMode, sample);
+    final averagePace = _averagePace(
+      state.elapsedSegmentSeconds,
+      segmentDistance,
+    );
     _setState(
       state.copyWith(
         gpsFix: fix,
         segmentDistanceMeters: segmentDistance,
         totalDistanceMeters: totalDistance,
-        currentPaceSecondsPerKm: _displayPace(settings.paceDisplayMode, sample),
-        segmentAveragePaceSecondsPerKm: _averagePace(
-          state.elapsedSegmentSeconds,
-          segmentDistance,
-        ),
+        currentPaceSecondsPerKm: displayPace,
+        segmentAveragePaceSecondsPerKm: averagePace,
       ),
     );
+    final sampleLogData = {
+      'latitude': sample.latitude,
+      'longitude': sample.longitude,
+      'timestamp': sample.timestamp,
+      'accuracyMeters': sample.accuracyMeters,
+      'gpsQuality': fix.quality,
+      'gpsCanStart': fix.canStart,
+      'rawSpeedMetersPerSecond': sample.speedMetersPerSecond,
+      'rawDistanceMeters': rawDistanceMeters,
+      'addedDistanceMeters': addedDistance,
+      'distanceDecision': distanceDecision,
+      'paceDisplayMode': settings.paceDisplayMode,
+      'paceWindowSamples': _paceWindow.length,
+      'currentPaceSecondsPerKm': displayPace,
+      'segmentAveragePaceSecondsPerKm': averagePace,
+      'segmentDistanceMeters': segmentDistance,
+      'totalDistanceMeters': totalDistance,
+      'elapsedSegmentSeconds': state.elapsedSegmentSeconds,
+      'elapsedTotalSeconds': state.elapsedTotalSeconds,
+      'segmentIndex': state.segmentIndex,
+    };
+    _logDebug('GPS sample processed', data: sampleLogData);
+    if (sample.accuracyMeters > 30) {
+      _logWarning('Poor GPS sample accuracy', data: sampleLogData);
+    }
+    if (distanceDecision.startsWith('rejected')) {
+      _logWarning('GPS distance sample rejected', data: sampleLogData);
+    }
+    if (sample.speedMetersPerSecond > 8) {
+      _logWarning('Suspicious GPS speed sample', data: sampleLogData);
+    }
 
     final segment = state.currentSegment;
     if (segment?.targetType == SegmentTargetType.distance &&
         segmentDistance >= (segment?.distanceMeters ?? double.infinity)) {
+      _logInfo(
+        'Distance segment target reached',
+        data: {
+          ..._runStateLogData(state),
+          'targetDistanceMeters': segment?.distanceMeters,
+          'segmentDistanceMeters': segmentDistance,
+        },
+      );
       unawaited(_completeCurrentSegment());
     }
   }
@@ -591,11 +889,21 @@ class RunController extends Notifier<RunState> {
 
   Future<void> _completeCurrentSegment({bool manualAdvance = false}) async {
     if (state.phase == RunPhase.countdown || state.phase == RunPhase.complete) {
+      _logWarning(
+        'Segment completion ignored in non-running phase',
+        data: {..._runStateLogData(state), 'manualAdvance': manualAdvance},
+      );
       return;
     }
     final workout = state.workout;
     final segment = state.currentSegment;
-    if (workout == null || segment == null) return;
+    if (workout == null || segment == null) {
+      _logWarning(
+        'Segment completion ignored because workout or segment is missing',
+        data: {..._runStateLogData(state), 'manualAdvance': manualAdvance},
+      );
+      return;
+    }
 
     _timer?.cancel();
     await _locationSub?.cancel();
@@ -604,6 +912,15 @@ class RunController extends Notifier<RunState> {
     _paceWindow.clear();
 
     final results = [...state.completedSegments, _currentResult()];
+    _logInfo(
+      'Segment completed',
+      data: {
+        ..._runStateLogData(state),
+        'manualAdvance': manualAdvance,
+        'completedSegment': _segmentLogData(segment),
+        'result': _segmentResultLogData(results.last),
+      },
+    );
     final nextIndex = state.segmentIndex + 1;
     if (nextIndex >= workout.segments.length) {
       await _saveRun(results);
@@ -616,6 +933,14 @@ class RunController extends Notifier<RunState> {
         ),
       );
       await _persistActiveRunNow();
+      _logInfo(
+        'Workout complete',
+        data: {
+          ..._runStateLogData(state),
+          'manualAdvance': manualAdvance,
+          'segmentResults': results.map(_segmentResultLogData).toList(),
+        },
+      );
       return;
     }
 
@@ -629,6 +954,13 @@ class RunController extends Notifier<RunState> {
         clearPace: true,
         statusMessage: 'Next segment',
       ),
+    );
+    _logInfo(
+      'Advancing to next segment',
+      data: {
+        ..._runStateLogData(state),
+        'nextSegment': _segmentLogData(workout.segments[nextIndex]),
+      },
     );
     await start();
   }
@@ -670,9 +1002,23 @@ class RunController extends Notifier<RunState> {
       segmentResults: results,
     );
     await ref.read(runHistoryRepositoryProvider).saveRun(record);
+    _logInfo(
+      'Run history record saved',
+      data: {
+        'runId': record.id,
+        'workoutName': record.workoutName,
+        'startedAt': record.startedAt,
+        'completedAt': record.completedAt,
+        'totalElapsedSeconds': record.totalElapsedSeconds,
+        'totalDistanceMeters': record.totalDistanceMeters,
+        'plannedSegmentCount': record.plannedSegments.length,
+        'completedSegmentCount': record.segmentResults.length,
+      },
+    );
   }
 
   void _disposeTracking() {
+    _logDebug('Disposing tracking resources', data: _runStateLogData(state));
     _timer?.cancel();
     _gpsLockTimer?.cancel();
     _locationSub?.cancel();
@@ -681,6 +1027,37 @@ class RunController extends Notifier<RunState> {
     _locationSub = null;
     _lastSample = null;
     _paceWindow.clear();
+  }
+
+  void _logDebug(String message, {Map<String, Object?> data = const {}}) {
+    unawaited(ref.read(logServiceProvider).debug('run', message, data: data));
+  }
+
+  void _logInfo(String message, {Map<String, Object?> data = const {}}) {
+    unawaited(ref.read(logServiceProvider).info('run', message, data: data));
+  }
+
+  void _logWarning(String message, {Map<String, Object?> data = const {}}) {
+    unawaited(ref.read(logServiceProvider).warning('run', message, data: data));
+  }
+
+  void _logError(
+    String message, {
+    Map<String, Object?> data = const {},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .error(
+            'run',
+            message,
+            data: data,
+            error: error,
+            stackTrace: stackTrace,
+          ),
+    );
   }
 }
 
@@ -704,4 +1081,92 @@ extension _Average on Iterable<double> {
     if (count == 0) return 0;
     return total / count;
   }
+}
+
+Map<String, Object?> _workoutLogData(WorkoutTemplate workout) {
+  return {
+    'workoutId': workout.id,
+    'name': workout.name,
+    'segmentCount': workout.segments.length,
+    'createdAt': workout.createdAt,
+    'updatedAt': workout.updatedAt,
+    'segments': workout.segments.map(_segmentLogData).toList(),
+  };
+}
+
+Map<String, Object?> _segmentLogData(SegmentPlan segment) {
+  return {
+    'segmentId': segment.id,
+    'kind': segment.kind,
+    'targetType': segment.targetType,
+    'durationSeconds': segment.durationSeconds,
+    'distanceMeters': segment.distanceMeters,
+    'targetPaceSecondsPerKm': segment.targetPaceSecondsPerKm,
+  };
+}
+
+Map<String, Object?> _segmentResultLogData(SegmentResult result) {
+  return {
+    'segmentId': result.segmentId,
+    'segmentIndex': result.segmentIndex,
+    'kind': result.kind,
+    'plannedLabel': result.plannedLabel,
+    'elapsedSeconds': result.elapsedSeconds,
+    'distanceMeters': result.distanceMeters,
+    'averagePaceSecondsPerKm': result.averagePaceSecondsPerKm,
+    'targetPaceSecondsPerKm': result.targetPaceSecondsPerKm,
+  };
+}
+
+Map<String, Object?> _gpsFixLogData(GpsFix fix) {
+  return {
+    'quality': fix.quality,
+    'accuracyMeters': fix.accuracyMeters,
+    'canStart': fix.canStart,
+    'message': fix.message,
+  };
+}
+
+Map<String, Object?> _runStateLogData(RunState state) {
+  return {
+    'phase': state.phase,
+    'workoutId': state.workout?.id,
+    'workoutName': state.workout?.name,
+    'startedAt': state.startedAt,
+    'segmentIndex': state.segmentIndex,
+    'segmentCount': state.workout?.segments.length,
+    'elapsedSegmentSeconds': state.elapsedSegmentSeconds,
+    'elapsedTotalSeconds': state.elapsedTotalSeconds,
+    'segmentDistanceMeters': state.segmentDistanceMeters,
+    'totalDistanceMeters': state.totalDistanceMeters,
+    'currentPaceSecondsPerKm': state.currentPaceSecondsPerKm,
+    'segmentAveragePaceSecondsPerKm': state.segmentAveragePaceSecondsPerKm,
+    'gpsFix': state.gpsFix == null ? null : _gpsFixLogData(state.gpsFix!),
+    'allowStartAnyway': state.allowStartAnyway,
+    'completedSegmentCount': state.completedSegments.length,
+    'statusMessage': state.statusMessage,
+    'currentSegment': state.currentSegment == null
+        ? null
+        : _segmentLogData(state.currentSegment!),
+  };
+}
+
+Map<String, Object?> _activeRunSnapshotLogData(ActiveRunSnapshot snapshot) {
+  return {
+    'workout': _workoutLogData(snapshot.workout),
+    'phase': snapshot.phase,
+    'capturedAt': snapshot.capturedAt,
+    'startedAt': snapshot.startedAt,
+    'segmentIndex': snapshot.segmentIndex,
+    'elapsedSegmentSeconds': snapshot.elapsedSegmentSeconds,
+    'elapsedTotalSeconds': snapshot.elapsedTotalSeconds,
+    'segmentDistanceMeters': snapshot.segmentDistanceMeters,
+    'totalDistanceMeters': snapshot.totalDistanceMeters,
+    'currentPaceSecondsPerKm': snapshot.currentPaceSecondsPerKm,
+    'segmentAveragePaceSecondsPerKm': snapshot.segmentAveragePaceSecondsPerKm,
+    'allowStartAnyway': snapshot.allowStartAnyway,
+    'completedSegments': snapshot.completedSegments
+        .map(_segmentResultLogData)
+        .toList(),
+  };
 }

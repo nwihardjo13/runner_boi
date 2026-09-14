@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +25,19 @@ class _RunScreenState extends ConsumerState<RunScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'run_screen',
+            'Run screen opened',
+            data: {
+              'resumeExisting': widget.resumeExisting,
+              'templateId': widget.template?.id,
+              'templateName': widget.template?.name,
+            },
+          ),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final template = widget.template;
       if (template != null) {
@@ -47,7 +62,25 @@ class _RunScreenState extends ConsumerState<RunScreen> {
         if (didPop) return;
         final controller = ref.read(runControllerProvider.notifier);
         if (run.needsEndConfirmation) {
+          unawaited(
+            ref
+                .read(logServiceProvider)
+                .info(
+                  'run_screen',
+                  'Back pressed during active run',
+                  data: {'phase': run.phase, 'segmentIndex': run.segmentIndex},
+                ),
+          );
           final end = await _confirmEnd(context);
+          unawaited(
+            ref
+                .read(logServiceProvider)
+                .info(
+                  'run_screen',
+                  'End run confirmation answered',
+                  data: {'confirmed': end},
+                ),
+          );
           if (end && context.mounted) {
             await controller.endRun();
             if (context.mounted) Navigator.of(context).pop();
@@ -55,6 +88,15 @@ class _RunScreenState extends ConsumerState<RunScreen> {
           return;
         }
         if (run.phase == RunPhase.gpsLock || run.phase == RunPhase.countdown) {
+          unawaited(
+            ref
+                .read(logServiceProvider)
+                .info(
+                  'run_screen',
+                  'Back pressed before run start',
+                  data: {'phase': run.phase, 'segmentIndex': run.segmentIndex},
+                ),
+          );
           await controller.reset();
           if (context.mounted) Navigator.of(context).pop();
         }
@@ -123,6 +165,15 @@ class _GpsLock extends ConsumerWidget {
       children: [
         IconButton(
           onPressed: () async {
+            unawaited(
+              ref
+                  .read(logServiceProvider)
+                  .info(
+                    'run_screen',
+                    'GPS lock close tapped',
+                    data: {'phase': run.phase},
+                  ),
+            );
             await ref.read(runControllerProvider.notifier).reset();
             if (context.mounted) Navigator.of(context).pop();
           },
@@ -153,8 +204,14 @@ class _GpsLock extends ConsumerWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () =>
-                    ref.read(runControllerProvider.notifier).refreshGps(),
+                onPressed: () {
+                  unawaited(
+                    ref
+                        .read(logServiceProvider)
+                        .info('run_screen', 'GPS refresh tapped'),
+                  );
+                  ref.read(runControllerProvider.notifier).refreshGps();
+                },
                 icon: const Icon(Icons.my_location),
                 label: const Text('Refresh'),
               ),
@@ -163,7 +220,22 @@ class _GpsLock extends ConsumerWidget {
             Expanded(
               child: FilledButton.icon(
                 onPressed: canStart
-                    ? () => ref.read(runControllerProvider.notifier).start()
+                    ? () {
+                        unawaited(
+                          ref
+                              .read(logServiceProvider)
+                              .info(
+                                'run_screen',
+                                'Run start tapped',
+                                data: {
+                                  'allowStartAnyway': run.allowStartAnyway,
+                                  'gpsFixCanStart': fix?.canStart,
+                                  'gpsAccuracyMeters': fix?.accuracyMeters,
+                                },
+                              ),
+                        );
+                        ref.read(runControllerProvider.notifier).start();
+                      }
                     : null,
                 icon: const Icon(Icons.play_arrow),
                 label: Text(run.allowStartAnyway ? 'Start anyway' : 'Start'),
@@ -301,8 +373,21 @@ class _Cockpit extends ConsumerWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () =>
-                    ref.read(runControllerProvider.notifier).skipSegment(),
+                onPressed: () {
+                  unawaited(
+                    ref
+                        .read(logServiceProvider)
+                        .info(
+                          'run_screen',
+                          'Next segment tapped',
+                          data: {
+                            'phase': run.phase,
+                            'segmentIndex': run.segmentIndex,
+                          },
+                        ),
+                  );
+                  ref.read(runControllerProvider.notifier).skipSegment();
+                },
                 icon: const Icon(Icons.skip_next),
                 label: const Text('Next'),
               ),
@@ -312,6 +397,20 @@ class _Cockpit extends ConsumerWidget {
               child: FilledButton.icon(
                 onPressed: () {
                   final controller = ref.read(runControllerProvider.notifier);
+                  unawaited(
+                    ref
+                        .read(logServiceProvider)
+                        .info(
+                          'run_screen',
+                          run.phase == RunPhase.paused
+                              ? 'Resume tapped'
+                              : 'Pause tapped',
+                          data: {
+                            'phase': run.phase,
+                            'segmentIndex': run.segmentIndex,
+                          },
+                        ),
+                  );
                   if (run.phase == RunPhase.paused) {
                     controller.resume();
                   } else {
@@ -326,8 +425,21 @@ class _Cockpit extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             IconButton.outlined(
-              onPressed: () =>
-                  ref.read(runControllerProvider.notifier).endRun(),
+              onPressed: () {
+                unawaited(
+                  ref
+                      .read(logServiceProvider)
+                      .info(
+                        'run_screen',
+                        'Stop tapped',
+                        data: {
+                          'phase': run.phase,
+                          'segmentIndex': run.segmentIndex,
+                        },
+                      ),
+                );
+                ref.read(runControllerProvider.notifier).endRun();
+              },
               icon: const Icon(Icons.stop),
               tooltip: 'End',
             ),
@@ -513,6 +625,18 @@ class _Complete extends ConsumerWidget {
         const Spacer(),
         FilledButton.icon(
           onPressed: () async {
+            unawaited(
+              ref
+                  .read(logServiceProvider)
+                  .info(
+                    'run_screen',
+                    'Complete done tapped',
+                    data: {
+                      'elapsedTotalSeconds': run.elapsedTotalSeconds,
+                      'totalDistanceMeters': run.totalDistanceMeters,
+                    },
+                  ),
+            );
             await ref.read(runControllerProvider.notifier).reset();
             if (context.mounted) Navigator.of(context).pop();
           },

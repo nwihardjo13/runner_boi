@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,7 +47,7 @@ class HomeScreen extends ConsumerWidget {
                           child: FilledButton.icon(
                             key: const Key('quickStartButton'),
                             onPressed: () =>
-                                _openEditor(context, startFocused: true),
+                                _openEditor(ref, context, startFocused: true),
                             icon: const Icon(Icons.play_arrow),
                             label: const Text('Start'),
                           ),
@@ -53,7 +55,7 @@ class HomeScreen extends ConsumerWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => _openEditor(context),
+                            onPressed: () => _openEditor(ref, context),
                             icon: const Icon(Icons.add),
                             label: const Text('New plan'),
                           ),
@@ -100,10 +102,24 @@ class HomeScreen extends ConsumerWidget {
   }
 
   void _openEditor(
+    WidgetRef ref,
     BuildContext context, {
     WorkoutTemplate? template,
     bool startFocused = false,
   }) {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'home',
+            'Workout editor opened from home',
+            data: {
+              'templateId': template?.id,
+              'templateName': template?.name,
+              'startFocused': startFocused,
+            },
+          ),
+    );
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
@@ -168,6 +184,20 @@ class _ActiveRunCard extends ConsumerWidget {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: () {
+                      unawaited(
+                        ref
+                            .read(logServiceProvider)
+                            .info(
+                              'home',
+                              'Recover run tapped',
+                              data: {
+                                'workoutId': template.id,
+                                'workoutName': template.name,
+                                'phase': run.phase,
+                                'segmentIndex': run.segmentIndex,
+                              },
+                            ),
+                      );
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const RunScreen.resume(),
@@ -183,6 +213,20 @@ class _ActiveRunCard extends ConsumerWidget {
                   onPressed: () async {
                     final discard = await _confirmDiscard(context);
                     if (discard && context.mounted) {
+                      unawaited(
+                        ref
+                            .read(logServiceProvider)
+                            .warning(
+                              'home',
+                              'Recovered run discarded',
+                              data: {
+                                'workoutId': template.id,
+                                'workoutName': template.name,
+                                'phase': run.phase,
+                                'segmentIndex': run.segmentIndex,
+                              },
+                            ),
+                      );
                       await ref.read(runControllerProvider.notifier).reset();
                     }
                   },
@@ -255,6 +299,18 @@ class _WorkoutCard extends ConsumerWidget {
                   onSelected: (value) async {
                     switch (value) {
                       case 'edit':
+                        unawaited(
+                          ref
+                              .read(logServiceProvider)
+                              .info(
+                                'home',
+                                'Template edit selected',
+                                data: {
+                                  'templateId': template.id,
+                                  'templateName': template.name,
+                                },
+                              ),
+                        );
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) =>
@@ -262,10 +318,34 @@ class _WorkoutCard extends ConsumerWidget {
                           ),
                         );
                       case 'copy':
+                        unawaited(
+                          ref
+                              .read(logServiceProvider)
+                              .info(
+                                'home',
+                                'Template copy selected',
+                                data: {
+                                  'templateId': template.id,
+                                  'templateName': template.name,
+                                },
+                              ),
+                        );
                         await ref
                             .read(templatesProvider.notifier)
                             .duplicate(template);
                       case 'delete':
+                        unawaited(
+                          ref
+                              .read(logServiceProvider)
+                              .warning(
+                                'home',
+                                'Template delete selected',
+                                data: {
+                                  'templateId': template.id,
+                                  'templateName': template.name,
+                                },
+                              ),
+                        );
                         await ref
                             .read(templatesProvider.notifier)
                             .delete(template.id);
@@ -296,6 +376,19 @@ class _WorkoutCard extends ConsumerWidget {
                     onPressed: template.segments.isEmpty
                         ? null
                         : () {
+                            unawaited(
+                              ref
+                                  .read(logServiceProvider)
+                                  .info(
+                                    'home',
+                                    'Saved template start tapped',
+                                    data: {
+                                      'templateId': template.id,
+                                      'templateName': template.name,
+                                      'segmentCount': template.segments.length,
+                                    },
+                                  ),
+                            );
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => RunScreen(template: template),
@@ -309,6 +402,18 @@ class _WorkoutCard extends ConsumerWidget {
                 const SizedBox(width: 10),
                 OutlinedButton.icon(
                   onPressed: () {
+                    unawaited(
+                      ref
+                          .read(logServiceProvider)
+                          .info(
+                            'home',
+                            'Saved template edit tapped',
+                            data: {
+                              'templateId': template.id,
+                              'templateName': template.name,
+                            },
+                          ),
+                    );
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => WorkoutEditorScreen(template: template),

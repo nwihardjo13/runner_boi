@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +39,21 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
       text: widget.template?.name ?? 'New plan',
     );
     _segments = [...?widget.template?.segments];
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'workout_editor',
+            'Workout editor opened',
+            data: {
+              'mode': widget.template == null ? 'create' : 'edit',
+              'startFocused': widget.startFocused,
+              'templateId': widget.template?.id,
+              'templateName': widget.template?.name,
+              'segmentCount': _segments.length,
+            },
+          ),
+    );
   }
 
   @override
@@ -106,6 +123,19 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _segments.length,
                 onReorderItem: (oldIndex, newIndex) {
+                  unawaited(
+                    ref
+                        .read(logServiceProvider)
+                        .info(
+                          'workout_editor',
+                          'Segment reordered',
+                          data: {
+                            'oldIndex': oldIndex,
+                            'newIndex': newIndex,
+                            'segmentId': _segments[oldIndex].id,
+                          },
+                        ),
+                  );
                   setState(() {
                     final segment = _segments.removeAt(oldIndex);
                     _segments.insert(newIndex, segment);
@@ -121,7 +151,7 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
                       segment: segment,
                       units: units,
                       onEdit: () => _editSegment(index, units),
-                      onDelete: () => setState(() => _segments.removeAt(index)),
+                      onDelete: () => _deleteSegment(index),
                     ),
                   );
                 },
@@ -149,6 +179,15 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
   bool get _canSubmit => _segments.isNotEmpty && !_isSaving;
 
   Future<void> _addSegment(SegmentKind kind, MeasurementSystem units) async {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'workout_editor',
+            'Add segment requested',
+            data: {'kind': kind, 'units': units},
+          ),
+    );
     final segment = SegmentPlan(
       id: _uuid.v4(),
       kind: kind,
@@ -159,14 +198,93 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
       distanceMeters: kind == SegmentKind.run ? 400 : null,
     );
     final edited = await _showSegmentDialog(segment, units);
-    if (edited == null) return;
+    if (edited == null) {
+      unawaited(
+        ref
+            .read(logServiceProvider)
+            .info(
+              'workout_editor',
+              'Add segment cancelled',
+              data: {'segmentId': segment.id},
+            ),
+      );
+      return;
+    }
     setState(() => _segments.add(edited));
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'workout_editor',
+            'Segment added',
+            data: {
+              'segment': edited.toJson(),
+              'segmentCount': _segments.length,
+            },
+          ),
+    );
   }
 
   Future<void> _editSegment(int index, MeasurementSystem units) async {
+    final original = _segments[index];
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'workout_editor',
+            'Edit segment requested',
+            data: {
+              'index': index,
+              'segment': original.toJson(),
+              'units': units,
+            },
+          ),
+    );
     final edited = await _showSegmentDialog(_segments[index], units);
-    if (edited == null) return;
+    if (edited == null) {
+      unawaited(
+        ref
+            .read(logServiceProvider)
+            .info(
+              'workout_editor',
+              'Edit segment cancelled',
+              data: {'index': index, 'segmentId': original.id},
+            ),
+      );
+      return;
+    }
     setState(() => _segments[index] = edited);
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'workout_editor',
+            'Segment edited',
+            data: {
+              'index': index,
+              'previous': original.toJson(),
+              'next': edited.toJson(),
+            },
+          ),
+    );
+  }
+
+  void _deleteSegment(int index) {
+    final removed = _segments[index];
+    setState(() => _segments.removeAt(index));
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .warning(
+            'workout_editor',
+            'Segment deleted from draft',
+            data: {
+              'index': index,
+              'segment': removed.toJson(),
+              'segmentCount': _segments.length,
+            },
+          ),
+    );
   }
 
   Future<SegmentPlan?> _showSegmentDialog(
@@ -184,7 +302,14 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
       context: context,
       builder: (_) => _RepeatDialog(maxBlockSize: _segments.length),
     );
-    if (result == null) return;
+    if (result == null) {
+      unawaited(
+        ref
+            .read(logServiceProvider)
+            .info('workout_editor', 'Repeat block cancelled'),
+      );
+      return;
+    }
     final block = _segments.sublist(_segments.length - result.blockSize);
     final additions = <SegmentPlan>[];
     for (var round = 0; round < result.additionalRepeats; round++) {
@@ -193,6 +318,20 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
       );
     }
     setState(() => _segments.addAll(additions));
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'workout_editor',
+            'Repeat block applied',
+            data: {
+              'blockSize': result.blockSize,
+              'additionalRepeats': result.additionalRepeats,
+              'addedSegments': additions.length,
+              'segmentCount': _segments.length,
+            },
+          ),
+    );
   }
 
   Future<WorkoutTemplate?> _persistTemplate() async {
@@ -210,19 +349,68 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
       segments: _segments,
     );
     try {
+      unawaited(
+        ref
+            .read(logServiceProvider)
+            .info(
+              'workout_editor',
+              'Persisting workout template',
+              data: {
+                'templateId': template.id,
+                'templateName': template.name,
+                'segmentCount': template.segments.length,
+              },
+            ),
+      );
       await ref.read(templatesProvider.notifier).save(template);
+      unawaited(
+        ref
+            .read(logServiceProvider)
+            .info(
+              'workout_editor',
+              'Workout template persisted',
+              data: {
+                'templateId': template.id,
+                'templateName': template.name,
+                'segmentCount': template.segments.length,
+              },
+            ),
+      );
       return template;
+    } catch (error, stackTrace) {
+      unawaited(
+        ref
+            .read(logServiceProvider)
+            .error(
+              'workout_editor',
+              'Workout template persist failed',
+              data: {
+                'templateId': template.id,
+                'templateName': template.name,
+                'segmentCount': template.segments.length,
+              },
+              error: error,
+              stackTrace: stackTrace,
+            ),
+      );
+      rethrow;
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
   Future<void> _save() async {
+    unawaited(
+      ref.read(logServiceProvider).info('workout_editor', 'Save tapped'),
+    );
     final template = await _persistTemplate();
     if (template != null && mounted) Navigator.of(context).pop();
   }
 
   Future<void> _saveAndStart() async {
+    unawaited(
+      ref.read(logServiceProvider).info('workout_editor', 'Start run tapped'),
+    );
     final template = await _persistTemplate();
     if (template == null || !mounted) return;
     Navigator.of(context).pushReplacement(

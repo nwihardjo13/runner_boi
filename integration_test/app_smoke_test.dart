@@ -28,4 +28,17 @@ void main() {
     expect(find.byKey(const Key('startRunButton')), findsOneWidget);
     expect(find.text('Segments'), findsOneWidget);
   });
+
+  testWidgets('opens settings diagnostics export surface', (tester) async {
+    app.main();
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('settings'), findsOneWidget);
+    expect(find.text('Diagnostics'), findsOneWidget);
+    expect(find.byKey(const Key('exportLogsButton')), findsOneWidget);
+  });
 }

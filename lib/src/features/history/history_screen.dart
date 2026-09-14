@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -79,7 +81,24 @@ class _RunCard extends ConsumerWidget {
         trailing: PopupMenuButton<String>(
           onSelected: (value) async {
             if (value == 'delete') {
+              final log = ref.read(logServiceProvider);
+              unawaited(
+                log.warning(
+                  'history',
+                  'Run delete requested',
+                  data: {
+                    'runId': run.id,
+                    'workoutName': run.workoutName,
+                    'startedAt': run.startedAt,
+                    'totalElapsedSeconds': run.totalElapsedSeconds,
+                    'totalDistanceMeters': run.totalDistanceMeters,
+                  },
+                ),
+              );
               await ref.read(runHistoryRepositoryProvider).deleteRun(run.id);
+              unawaited(
+                log.info('history', 'Run deleted', data: {'runId': run.id}),
+              );
             }
           },
           itemBuilder: (_) => const [

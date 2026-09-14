@@ -40,6 +40,7 @@ build/app/outputs/flutter-apk/app-debug.apk
 - Recoverable active run snapshot if the app process is closed mid-run.
 - Local run history with per-segment planned vs actual stats.
 - Persisted settings for units, pace mode, countdown length, voice cues, and audio ducking.
+- Exportable diagnostics logs for GPS, pace, distance, lifecycle, and app actions.
 
 ## Scope
 
@@ -53,8 +54,9 @@ Data stays on device:
 - Settings
 - Run history
 - Segment results
+- Diagnostics logs
 
-The app has no backend, account system, analytics, or cloud upload.
+The app has no backend, account system, analytics, or cloud upload. Exported diagnostics logs can include GPS coordinates and should be treated as sensitive.
 
 ## Android Access
 
@@ -105,6 +107,7 @@ adb install -r build/app/outputs/flutter-apk/app-debug.apk
 - Local: `flutter analyze`, `flutter test`, `flutter build apk --debug`
 - CI: dependency install, analyzer, unit tests, debug APK upload, Android emulator boot/install/smoke test
 - Workflow: `.github/workflows/android-emulator.yml`
+- E2E status: smoke coverage only. It boots the app, opens the plan editor, and verifies the diagnostics export surface.
 
 ## Test Backlog
 

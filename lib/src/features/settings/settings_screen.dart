@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../domain/models.dart';
 import '../providers.dart';
@@ -128,6 +132,27 @@ class SettingsScreen extends ConsumerWidget {
                     : null,
                 title: const Text('Duck music during cues'),
               ),
+              _Section(
+                title: 'Diagnostics',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Exports the last 10 session logs. Logs include GPS coordinates, pace, distance, settings, and app events.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      key: const Key('exportLogsButton'),
+                      onPressed: () => _exportLogs(context, ref),
+                      icon: const Icon(Icons.ios_share),
+                      label: const Text('Export logs'),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 28),
               OutlinedButton.icon(
                 onPressed: () => _deleteAllRuns(context, ref),
@@ -142,6 +167,9 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _deleteAllRuns(BuildContext context, WidgetRef ref) async {
+    unawaited(
+      ref.read(logServiceProvider).info('settings', 'Delete all runs tapped'),
+    );
     final confirmed =
         await showDialog<bool>(
           context: context,
@@ -164,7 +192,94 @@ class SettingsScreen extends ConsumerWidget {
         ) ??
         false;
     if (!confirmed) return;
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .warning('settings', 'Delete all runs confirmed'),
+    );
     await ref.read(runHistoryRepositoryProvider).deleteAllRuns();
+    unawaited(
+      ref.read(logServiceProvider).info('settings', 'All runs deleted'),
+    );
+  }
+
+  Future<void> _exportLogs(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final log = ref.read(logServiceProvider);
+    try {
+      final files = await log.exportFiles();
+      if (!context.mounted) return;
+      if (files.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No logs available')),
+        );
+        return;
+      }
+      final fileDetails = await Future.wait(
+        files.map(
+          (file) async => {
+            'name': file.uri.pathSegments.last,
+            'bytes': await file.length(),
+          },
+        ),
+      );
+      unawaited(
+        log.info(
+          'settings',
+          'Diagnostics log files prepared',
+          data: {'fileCount': files.length, 'files': fileDetails},
+        ),
+      );
+      if (!context.mounted) return;
+      final renderObject = context.findRenderObject();
+      final shareOrigin = renderObject is RenderBox
+          ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+          : null;
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          title: 'Runner Boi diagnostics logs',
+          subject: 'Runner Boi diagnostics logs',
+          text: 'Runner Boi diagnostics logs',
+          files: files.map(_xFile).toList(),
+          fileNameOverrides: files
+              .map((file) => file.uri.pathSegments.last)
+              .toList(),
+          sharePositionOrigin: shareOrigin,
+        ),
+      );
+      unawaited(
+        log.info(
+          'settings',
+          'Diagnostics log share completed',
+          data: {
+            'fileCount': files.length,
+            'status': result.status.name,
+            'raw': result.raw,
+          },
+        ),
+      );
+    } catch (error, stackTrace) {
+      unawaited(
+        log.error(
+          'settings',
+          'Diagnostics log export failed',
+          error: error,
+          stackTrace: stackTrace,
+        ),
+      );
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not export logs: $error')),
+      );
+    }
+  }
+
+  XFile _xFile(File file) {
+    return XFile(
+      file.path,
+      mimeType: 'application/jsonl',
+      name: file.uri.pathSegments.last,
+    );
   }
 }
 

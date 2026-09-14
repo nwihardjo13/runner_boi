@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/history/history_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/providers.dart';
 import 'features/settings/settings_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -27,8 +30,93 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
   var _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info('navigation', 'App shell opened', data: {'tab': 'Plans'}),
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(ref.read(logServiceProvider).info('app', 'App shell disposed'));
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .info(
+            'app_lifecycle',
+            'App lifecycle changed',
+            data: {'state': state.name},
+          ),
+    );
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .warning('app_lifecycle', 'System memory pressure reported'),
+    );
+  }
+
+  @override
+  void didChangeMetrics() {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .debug(
+            'app_lifecycle',
+            'Window metrics changed',
+            data: {
+              'views': WidgetsBinding.instance.platformDispatcher.views
+                  .map(
+                    (view) => {
+                      'devicePixelRatio': view.devicePixelRatio,
+                      'physicalWidth': view.physicalSize.width,
+                      'physicalHeight': view.physicalSize.height,
+                      'padding': view.padding.toString(),
+                      'viewInsets': view.viewInsets.toString(),
+                    },
+                  )
+                  .toList(),
+            },
+          ),
+    );
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    unawaited(
+      ref
+          .read(logServiceProvider)
+          .debug(
+            'app_lifecycle',
+            'Platform brightness changed',
+            data: {
+              'brightness': WidgetsBinding
+                  .instance
+                  .platformDispatcher
+                  .platformBrightness
+                  .name,
+            },
+          ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +130,22 @@ class _AppShellState extends ConsumerState<AppShell> {
       body: IndexedStack(index: _index, children: screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (index) => setState(() => _index = index),
+        onDestinationSelected: (index) {
+          unawaited(
+            ref
+                .read(logServiceProvider)
+                .info(
+                  'navigation',
+                  'Tab selected',
+                  data: {
+                    'fromIndex': _index,
+                    'toIndex': index,
+                    'toTab': _tabName(index),
+                  },
+                ),
+          );
+          setState(() => _index = index);
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.directions_run_outlined),
@@ -62,5 +165,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         ],
       ),
     );
+  }
+
+  String _tabName(int index) {
+    return switch (index) {
+      0 => 'Plans',
+      1 => 'History',
+      2 => 'Settings',
+      _ => 'Unknown',
+    };
   }
 }
