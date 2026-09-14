@@ -90,18 +90,24 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.icon(
+                  child: _SegmentActionButton(
+                    key: const Key('addRunSegmentButton'),
                     onPressed: () => _addSegment(SegmentKind.run, units),
                     icon: const Icon(Icons.directions_run),
-                    label: const Text('Run'),
+                    title: 'Add run',
+                    subtitle: 'Work interval',
+                    accent: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: _SegmentActionButton(
+                    key: const Key('addRestSegmentButton'),
                     onPressed: () => _addSegment(SegmentKind.rest, units),
                     icon: const Icon(Icons.self_improvement),
-                    label: const Text('Rest'),
+                    title: 'Add rest',
+                    subtitle: 'Recovery interval',
+                    accent: Theme.of(context).colorScheme.tertiary,
                   ),
                 ),
               ],
@@ -415,6 +421,73 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
     if (template == null || !mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => RunScreen(template: template)),
+    );
+  }
+}
+
+class _SegmentActionButton extends StatelessWidget {
+  const _SegmentActionButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final String title;
+  final String subtitle;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: accent.withValues(alpha: 0.42)),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          height: 112,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconTheme(
+                  data: IconThemeData(color: accent, size: 26),
+                  child: icon,
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
