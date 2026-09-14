@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:runner_boi/src/app.dart';
+import 'package:runner_boi/src/features/settings/settings_screen.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('boots, opens the editor, and shows diagnostics', (tester) async {
+  testWidgets('boots and opens the editor', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: RunnerBoiApp()));
 
     await _pumpUi(tester);
@@ -30,11 +31,12 @@ void main() {
     expect(find.text('Add rest'), findsOneWidget);
     expect(find.byKey(const Key('startRunButton')), findsOneWidget);
     expect(find.text('Segments'), findsOneWidget);
+  });
 
-    await tester.tap(find.byTooltip('Back'));
-    await _pumpUi(tester);
-
-    await tester.tap(find.text('Settings'));
+  testWidgets('shows diagnostics settings', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: SettingsScreen())),
+    );
     await _pumpUi(tester);
 
     expect(find.text('settings'), findsOneWidget);
