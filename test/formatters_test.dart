@@ -13,6 +13,30 @@ void main() {
     expect(formatPace(300, MeasurementSystem.imperial), '8:03 /mi');
   });
 
+  test('formats duration and pace for speech', () {
+    expect(formatDurationSpeech(120), '2 minutes');
+    expect(formatDurationSpeech(3723), '1 hour 2 minutes 3 seconds');
+    expect(
+      formatPaceSpeech(300, MeasurementSystem.metric),
+      '5 minutes per kilometer',
+    );
+  });
+
+  test('segment cue speech avoids clock-style time', () {
+    const segment = SegmentPlan(
+      id: 'segment-1',
+      kind: SegmentKind.run,
+      targetType: SegmentTargetType.time,
+      durationSeconds: 120,
+      targetPaceSecondsPerKm: 300,
+    );
+
+    expect(
+      segmentCueSpeech(segment, MeasurementSystem.metric),
+      'run 2 minutes at 5 minutes per kilometer',
+    );
+  });
+
   test('manual segment cue uses requested phrase', () {
     final segment = SegmentPlan(
       id: 'segment-1',

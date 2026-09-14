@@ -41,7 +41,40 @@ class VoiceService {
     );
     await _activateAudio(duckAudio);
     await _tts.setPitch(1);
-    await _tts.speak('Next. ${segmentCue(segment, units)}');
+    await _tts.speak('Next. ${segmentCueSpeech(segment, units)}');
+  }
+
+  Future<void> announceRunUpdate({
+    required MeasurementSystem units,
+    required bool duckAudio,
+    required int elapsedSeconds,
+    required double distanceMeters,
+    required double? currentPaceSecondsPerKm,
+    required double? averagePaceSecondsPerKm,
+  }) async {
+    _info(
+      'Announcing run update',
+      data: {
+        'units': units,
+        'duckAudio': duckAudio,
+        'elapsedSeconds': elapsedSeconds,
+        'distanceMeters': distanceMeters,
+        'currentPaceSecondsPerKm': currentPaceSecondsPerKm,
+        'averagePaceSecondsPerKm': averagePaceSecondsPerKm,
+      },
+    );
+    await _activateAudio(duckAudio);
+    await _tts.setPitch(1);
+    await _tts.speak(
+      [
+        'Update.',
+        'Current pace ${formatPaceSpeech(currentPaceSecondsPerKm, units)}.',
+        'Segment average ${formatPaceSpeech(averagePaceSecondsPerKm, units)}.',
+        'Distance ${formatDistanceSpeech(distanceMeters, units)}.',
+        'Time ${formatDurationSpeech(elapsedSeconds)}.',
+      ].join(' '),
+    );
+    await _deactivateAudio(duckAudio);
   }
 
   Future<void> countdown(int seconds, {required bool duckAudio}) async {
@@ -74,15 +107,24 @@ class VoiceService {
 
   Future<void> _activateAudio(bool duckAudio) async {
     if (!duckAudio) return;
-    _debug('Activating ducked audio session');
+    _debug('Activating transient speech audio session');
     final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.speech());
-    await session.setActive(true);
+    await session.configure(
+      const AudioSessionConfiguration.speech().copyWith(
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransient,
+        androidWillPauseWhenDucked: true,
+      ),
+    );
+    await session.setActive(
+      true,
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransient,
+      androidWillPauseWhenDucked: true,
+    );
   }
 
   Future<void> _deactivateAudio(bool duckAudio) async {
     if (!duckAudio) return;
-    _debug('Deactivating ducked audio session');
+    _debug('Deactivating transient speech audio session');
     final session = await AudioSession.instance;
     await session.setActive(false);
   }

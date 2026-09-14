@@ -130,7 +130,50 @@ class SettingsScreen extends ConsumerWidget {
                             .saveSettings(value.copyWith(duckAudio: enabled));
                       }
                     : null,
-                title: const Text('Duck music during cues'),
+                title: const Text('Pause music during cues'),
+              ),
+              _Section(
+                title: 'Run updates',
+                child: SegmentedButton<RunUpdateCueMode>(
+                  segments: [
+                    const ButtonSegment(
+                      value: RunUpdateCueMode.off,
+                      label: Text('Off'),
+                    ),
+                    const ButtonSegment(
+                      value: RunUpdateCueMode.everyMinute,
+                      label: Text('1 min'),
+                    ),
+                    ButtonSegment(
+                      value: RunUpdateCueMode.everyHalfDistance,
+                      label: Text(
+                        value.measurementSystem == MeasurementSystem.imperial
+                            ? '0.5 mi'
+                            : '0.5 km',
+                      ),
+                    ),
+                    ButtonSegment(
+                      value: RunUpdateCueMode.everyDistance,
+                      label: Text(
+                        value.measurementSystem == MeasurementSystem.imperial
+                            ? '1 mi'
+                            : '1 km',
+                      ),
+                    ),
+                  ],
+                  selected: {value.runUpdateCueMode},
+                  onSelectionChanged: value.voiceCuesEnabled
+                      ? (selected) {
+                          ref
+                              .read(settingsControllerProvider.notifier)
+                              .saveSettings(
+                                value.copyWith(
+                                  runUpdateCueMode: selected.first,
+                                ),
+                              );
+                        }
+                      : null,
+                ),
               ),
               _Section(
                 title: 'Diagnostics',

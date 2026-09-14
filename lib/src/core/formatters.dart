@@ -13,6 +13,19 @@ String formatDurationClock(int seconds) {
   return '$minutes:${secs.toString().padLeft(2, '0')}';
 }
 
+String formatDurationSpeech(int seconds) {
+  final clamped = seconds.clamp(0, 24 * 60 * 60);
+  final hours = clamped ~/ 3600;
+  final minutes = (clamped % 3600) ~/ 60;
+  final secs = clamped % 60;
+  final parts = <String>[
+    if (hours > 0) _plural(hours, 'hour'),
+    if (minutes > 0) _plural(minutes, 'minute'),
+    if (secs > 0 || (hours == 0 && minutes == 0)) _plural(secs, 'second'),
+  ];
+  return parts.join(' ');
+}
+
 String formatDistance(double meters, MeasurementSystem units) {
   if (units == MeasurementSystem.imperial) {
     final miles = meters / metersPerMile;
@@ -23,6 +36,23 @@ String formatDistance(double meters, MeasurementSystem units) {
   }
   final km = meters / 1000;
   return '${km.toStringAsFixed(km < 10 ? 2 : 1)} km';
+}
+
+String formatDistanceSpeech(double meters, MeasurementSystem units) {
+  if (units == MeasurementSystem.imperial) {
+    final miles = meters / metersPerMile;
+    final rounded = miles < 10
+        ? miles.toStringAsFixed(2)
+        : miles.toStringAsFixed(1);
+    return '$rounded ${miles == 1 ? 'mile' : 'miles'}';
+  }
+  if (meters < 1000) {
+    final roundedMeters = meters.round();
+    return '$roundedMeters ${roundedMeters == 1 ? 'meter' : 'meters'}';
+  }
+  final km = meters / 1000;
+  final rounded = km < 10 ? km.toStringAsFixed(2) : km.toStringAsFixed(1);
+  return '$rounded kilometers';
 }
 
 String formatPace(double? secondsPerKm, MeasurementSystem units) {
@@ -36,6 +66,24 @@ String formatPace(double? secondsPerKm, MeasurementSystem units) {
   final seconds = secondsPerUnit.round() % 60;
   final suffix = units == MeasurementSystem.imperial ? '/mi' : '/km';
   return '$minutes:${seconds.toString().padLeft(2, '0')} $suffix';
+}
+
+String formatPaceSpeech(double? secondsPerKm, MeasurementSystem units) {
+  if (secondsPerKm == null || secondsPerKm.isNaN || secondsPerKm.isInfinite) {
+    return 'no pace';
+  }
+  final secondsPerUnit = units == MeasurementSystem.imperial
+      ? secondsPerKm * metersPerMile / 1000
+      : secondsPerKm;
+  final totalSeconds = secondsPerUnit.round();
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+  final unit = units == MeasurementSystem.imperial ? 'mile' : 'kilometer';
+  final parts = <String>[
+    if (minutes > 0) _plural(minutes, 'minute'),
+    if (seconds > 0 || minutes == 0) _plural(seconds, 'second'),
+  ];
+  return '${parts.join(' ')} per $unit';
 }
 
 double? paceInputToSecondsPerKm({
@@ -81,6 +129,27 @@ String segmentCue(SegmentPlan segment, MeasurementSystem units) {
   return '$kind $target$pace';
 }
 
+String segmentCueSpeech(SegmentPlan segment, MeasurementSystem units) {
+  if (segment.isManual) {
+    return 'fuck about segment';
+  }
+  final kind = segment.kind == SegmentKind.rest ? 'rest' : 'run';
+  final target = switch (segment.targetType) {
+    SegmentTargetType.time => formatDurationSpeech(
+      segment.durationSeconds ?? 0,
+    ),
+    SegmentTargetType.distance => formatDistanceSpeech(
+      segment.distanceMeters ?? 0,
+      units,
+    ),
+    SegmentTargetType.manual => 'manual',
+  };
+  final pace = segment.targetPaceSecondsPerKm == null
+      ? ''
+      : ' at ${formatPaceSpeech(segment.targetPaceSecondsPerKm, units)}';
+  return '$kind $target$pace';
+}
+
 String formatGpsAccuracy(double? accuracyMeters) {
   if (accuracyMeters == null) return '--';
   return '${accuracyMeters.round()} m';
@@ -102,4 +171,8 @@ String plannedSummary(List<SegmentPlan> segments, MeasurementSystem units) {
     if (totalTime > 0) formatDurationClock(totalTime),
   ];
   return parts.join(' · ');
+}
+
+String _plural(int value, String unit) {
+  return '$value $unit${value == 1 ? '' : 's'}';
 }

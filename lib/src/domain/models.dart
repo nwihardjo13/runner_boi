@@ -4,6 +4,8 @@ enum MeasurementSystem { metric, imperial }
 
 enum PaceDisplayMode { instant, smoothed5, smoothed10 }
 
+enum RunUpdateCueMode { off, everyMinute, everyHalfDistance, everyDistance }
+
 enum SegmentKind { run, rest }
 
 enum SegmentTargetType { time, distance, manual }
@@ -19,6 +21,7 @@ class AppSettings {
     required this.countdownSeconds,
     required this.voiceCuesEnabled,
     required this.duckAudio,
+    required this.runUpdateCueMode,
   });
 
   factory AppSettings.defaults(LocaleLike locale) {
@@ -30,6 +33,7 @@ class AppSettings {
       countdownSeconds: 3,
       voiceCuesEnabled: true,
       duckAudio: true,
+      runUpdateCueMode: RunUpdateCueMode.off,
     );
   }
 
@@ -38,6 +42,7 @@ class AppSettings {
   final int countdownSeconds;
   final bool voiceCuesEnabled;
   final bool duckAudio;
+  final RunUpdateCueMode runUpdateCueMode;
 
   AppSettings copyWith({
     MeasurementSystem? measurementSystem,
@@ -45,6 +50,7 @@ class AppSettings {
     int? countdownSeconds,
     bool? voiceCuesEnabled,
     bool? duckAudio,
+    RunUpdateCueMode? runUpdateCueMode,
   }) {
     return AppSettings(
       measurementSystem: measurementSystem ?? this.measurementSystem,
@@ -52,6 +58,7 @@ class AppSettings {
       countdownSeconds: countdownSeconds ?? this.countdownSeconds,
       voiceCuesEnabled: voiceCuesEnabled ?? this.voiceCuesEnabled,
       duckAudio: duckAudio ?? this.duckAudio,
+      runUpdateCueMode: runUpdateCueMode ?? this.runUpdateCueMode,
     );
   }
 }

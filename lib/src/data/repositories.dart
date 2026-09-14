@@ -143,6 +143,7 @@ class SettingsRepository {
   static const _countdownKey = 'countdown_seconds';
   static const _voiceKey = 'voice_cues';
   static const _duckAudioKey = 'duck_audio';
+  static const _runUpdateCueModeKey = 'run_update_cue_mode';
 
   final SharedPreferences _prefs;
   final LocaleLike _locale;
@@ -164,6 +165,11 @@ class SettingsRepository {
           _prefs.getInt(_countdownKey) ?? defaults.countdownSeconds,
       voiceCuesEnabled: _prefs.getBool(_voiceKey) ?? defaults.voiceCuesEnabled,
       duckAudio: _prefs.getBool(_duckAudioKey) ?? defaults.duckAudio,
+      runUpdateCueMode: _enumValue(
+        RunUpdateCueMode.values,
+        _prefs.getString(_runUpdateCueModeKey),
+        defaults.runUpdateCueMode,
+      ),
     );
   }
 
@@ -173,6 +179,10 @@ class SettingsRepository {
     await _prefs.setInt(_countdownKey, settings.countdownSeconds);
     await _prefs.setBool(_voiceKey, settings.voiceCuesEnabled);
     await _prefs.setBool(_duckAudioKey, settings.duckAudio);
+    await _prefs.setString(
+      _runUpdateCueModeKey,
+      settings.runUpdateCueMode.name,
+    );
   }
 
   T _enumValue<T extends Enum>(List<T> values, String? name, T fallback) {

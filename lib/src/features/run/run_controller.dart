@@ -128,6 +128,9 @@ class RunController extends Notifier<RunState> {
   LocationSample? _lastSample;
   Future<void> _activeRunPersistence = Future.value();
   final _paceWindow = Queue<_PacePoint>();
+  int _lastTimeUpdateSecond = 0;
+  int _lastDistanceUpdateIndex = 0;
+  bool _isVoiceUpdateInFlight = false;
 
   @override
   RunState build() {
@@ -214,6 +217,7 @@ class RunController extends Notifier<RunState> {
       'Segment running',
       data: {..._runStateLogData(state), 'segment': _segmentLogData(segment)},
     );
+    _resetUpdateCueMarkers();
     _startTracking(settings);
   }
 
@@ -500,6 +504,15 @@ class RunController extends Notifier<RunState> {
     );
     final segment = state.currentSegment;
     if (segment == null) return;
+    final settings = ref.read(settingsControllerProvider).value;
+    if (settings != null &&
+        settings.runUpdateCueMode == RunUpdateCueMode.everyMinute &&
+        state.elapsedSegmentSeconds >= 60 &&
+        state.elapsedSegmentSeconds % 60 == 0 &&
+        state.elapsedSegmentSeconds != _lastTimeUpdateSecond) {
+      _lastTimeUpdateSecond = state.elapsedSegmentSeconds;
+      _announceRunUpdate(settings, trigger: 'time');
+    }
     if (segment.targetType == SegmentTargetType.time &&
         state.elapsedSegmentSeconds >= (segment.durationSeconds ?? 0)) {
       _logInfo(
@@ -599,6 +612,14 @@ class RunController extends Notifier<RunState> {
     }
 
     final segment = state.currentSegment;
+    final cueDistanceMeters = _updateCueDistanceMeters(settings);
+    if (cueDistanceMeters != null && segment?.kind == SegmentKind.run) {
+      final updateIndex = segmentDistance ~/ cueDistanceMeters;
+      if (updateIndex > 0 && updateIndex > _lastDistanceUpdateIndex) {
+        _lastDistanceUpdateIndex = updateIndex;
+        _announceRunUpdate(settings, trigger: 'distance');
+      }
+    }
     if (segment?.targetType == SegmentTargetType.distance &&
         segmentDistance >= (segment?.distanceMeters ?? double.infinity)) {
       _logInfo(
@@ -626,6 +647,77 @@ class RunController extends Notifier<RunState> {
     return seconds / (meters / 1000);
   }
 
+  double? _updateCueDistanceMeters(AppSettings settings) {
+    return switch (settings.runUpdateCueMode) {
+      RunUpdateCueMode.everyHalfDistance =>
+        settings.measurementSystem == MeasurementSystem.imperial
+            ? metersPerMile / 2
+            : 500,
+      RunUpdateCueMode.everyDistance =>
+        settings.measurementSystem == MeasurementSystem.imperial
+            ? metersPerMile
+            : 1000,
+      RunUpdateCueMode.off || RunUpdateCueMode.everyMinute => null,
+    };
+  }
+
+  void _announceRunUpdate(AppSettings settings, {required String trigger}) {
+    final segment = state.currentSegment;
+    if (!settings.voiceCuesEnabled ||
+        settings.runUpdateCueMode == RunUpdateCueMode.off ||
+        segment?.kind != SegmentKind.run ||
+        state.phase != RunPhase.running ||
+        _isVoiceUpdateInFlight) {
+      _logDebug(
+        'Run update cue skipped',
+        data: {
+          ..._runStateLogData(state),
+          'trigger': trigger,
+          'voiceCuesEnabled': settings.voiceCuesEnabled,
+          'runUpdateCueMode': settings.runUpdateCueMode,
+          'isVoiceUpdateInFlight': _isVoiceUpdateInFlight,
+        },
+      );
+      return;
+    }
+
+    _isVoiceUpdateInFlight = true;
+    _logInfo(
+      'Run update cue triggered',
+      data: {
+        ..._runStateLogData(state),
+        'trigger': trigger,
+        'runUpdateCueMode': settings.runUpdateCueMode,
+      },
+    );
+    unawaited(
+      ref
+          .read(voiceServiceProvider)
+          .announceRunUpdate(
+            units: settings.measurementSystem,
+            duckAudio: settings.duckAudio,
+            elapsedSeconds: state.elapsedSegmentSeconds,
+            distanceMeters: state.segmentDistanceMeters,
+            currentPaceSecondsPerKm: state.currentPaceSecondsPerKm,
+            averagePaceSecondsPerKm: state.segmentAveragePaceSecondsPerKm,
+          )
+          .catchError((Object error, StackTrace stackTrace) {
+            _logError(
+              'Run update cue failed',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          })
+          .whenComplete(() => _isVoiceUpdateInFlight = false),
+    );
+  }
+
+  void _resetUpdateCueMarkers() {
+    _lastTimeUpdateSecond = 0;
+    _lastDistanceUpdateIndex = 0;
+    _isVoiceUpdateInFlight = false;
+  }
+
   Future<void> _completeCurrentSegment({bool manualAdvance = false}) async {
     if (state.phase == RunPhase.countdown || state.phase == RunPhase.complete) {
       _logWarning(
@@ -649,6 +741,7 @@ class RunController extends Notifier<RunState> {
     _locationSub = null;
     _lastSample = null;
     _paceWindow.clear();
+    _resetUpdateCueMarkers();
 
     final results = [...state.completedSegments, _currentResult()];
     _logInfo(
@@ -768,6 +861,7 @@ class RunController extends Notifier<RunState> {
     _locationSub = null;
     _lastSample = null;
     _paceWindow.clear();
+    _resetUpdateCueMarkers();
   }
 
   void _logDebug(String message, {Map<String, Object?> data = const {}}) {
