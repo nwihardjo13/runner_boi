@@ -7,6 +7,7 @@ import 'features/history/history_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/providers.dart';
 import 'features/settings/settings_screen.dart';
+import 'services/log_service.dart';
 import 'theme/app_theme.dart';
 
 class RunnerBoiApp extends StatelessWidget {
@@ -33,21 +34,25 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   var _index = 0;
+  late final AppLogService _logService;
 
   @override
   void initState() {
     super.initState();
+    _logService = ref.read(logServiceProvider);
     WidgetsBinding.instance.addObserver(this);
     unawaited(
-      ref
-          .read(logServiceProvider)
-          .info('navigation', 'App shell opened', data: {'tab': 'Plans'}),
+      _logService.info(
+        'navigation',
+        'App shell opened',
+        data: {'tab': 'Plans'},
+      ),
     );
   }
 
   @override
   void dispose() {
-    unawaited(ref.read(logServiceProvider).info('app', 'App shell disposed'));
+    unawaited(_logService.info('app', 'App shell disposed'));
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
