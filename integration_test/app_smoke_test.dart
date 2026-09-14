@@ -9,7 +9,7 @@ void main() {
   testWidgets('boots, opens the editor, and shows diagnostics', (tester) async {
     await app.main();
 
-    await tester.pumpAndSettle();
+    await _pumpUi(tester);
 
     expect(find.text('Runner Boi'), findsOneWidget);
     expect(
@@ -20,7 +20,7 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'New plan'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('quickStartButton')));
-    await tester.pumpAndSettle();
+    await _pumpUi(tester);
 
     expect(find.text('Plan run'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Run'), findsOneWidget);
@@ -29,13 +29,19 @@ void main() {
     expect(find.text('Segments'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Back'));
-    await tester.pumpAndSettle();
+    await _pumpUi(tester);
 
     await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
+    await _pumpUi(tester);
 
     expect(find.text('settings'), findsOneWidget);
     expect(find.text('Diagnostics'), findsOneWidget);
     expect(find.byKey(const Key('exportLogsButton')), findsOneWidget);
   });
+}
+
+Future<void> _pumpUi(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pump(const Duration(milliseconds: 600));
 }
