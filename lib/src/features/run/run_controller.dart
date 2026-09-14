@@ -131,7 +131,7 @@ class RunController extends Notifier<RunState> {
 
   @override
   RunState build() {
-    ref.onDispose(_disposeTracking);
+    ref.onDispose(() => _disposeTracking(log: false));
     _logInfo('Run controller initialized');
     unawaited(_restoreActiveRun());
     return RunState.idle();
@@ -756,8 +756,10 @@ class RunController extends Notifier<RunState> {
     );
   }
 
-  void _disposeTracking() {
-    _logDebug('Disposing tracking resources', data: _runStateLogData(state));
+  void _disposeTracking({bool log = true}) {
+    if (log) {
+      _logDebug('Disposing tracking resources', data: _runStateLogData(state));
+    }
     _timer?.cancel();
     _gpsLockTimer?.cancel();
     _locationSub?.cancel();

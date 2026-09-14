@@ -40,6 +40,13 @@ void main() {
     await _pumpUi(tester);
 
     expect(find.text('settings'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Diagnostics'),
+      320,
+      scrollable: find.byType(Scrollable),
+    );
+    await _pumpUi(tester);
+
     expect(find.text('Diagnostics'), findsOneWidget);
     expect(find.byKey(const Key('exportLogsButton')), findsOneWidget);
   });
