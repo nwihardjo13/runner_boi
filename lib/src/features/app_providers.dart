@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/app_database.dart';
@@ -37,6 +38,10 @@ final runHistoryProvider = StreamProvider<List<RunRecord>>((ref) {
 
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
   return SharedPreferences.getInstance();
+});
+
+final packageInfoProvider = FutureProvider<PackageInfo>((ref) {
+  return PackageInfo.fromPlatform();
 });
 
 final logServiceProvider = Provider<AppLogService>((ref) {

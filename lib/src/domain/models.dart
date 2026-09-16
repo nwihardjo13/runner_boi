@@ -24,7 +24,6 @@ class AppSettings {
     required this.runUpdateCueMode,
     required this.runUpdateMinutes,
     required this.runUpdateDistance,
-    required this.autoUpdateChecksEnabled,
   });
 
   factory AppSettings.defaults(LocaleLike locale) {
@@ -39,7 +38,6 @@ class AppSettings {
       runUpdateCueMode: RunUpdateCueMode.off,
       runUpdateMinutes: 1,
       runUpdateDistance: 1,
-      autoUpdateChecksEnabled: true,
     );
   }
 
@@ -51,7 +49,6 @@ class AppSettings {
   final RunUpdateCueMode runUpdateCueMode;
   final int runUpdateMinutes;
   final double runUpdateDistance;
-  final bool autoUpdateChecksEnabled;
 
   AppSettings copyWith({
     MeasurementSystem? measurementSystem,
@@ -62,7 +59,6 @@ class AppSettings {
     RunUpdateCueMode? runUpdateCueMode,
     int? runUpdateMinutes,
     double? runUpdateDistance,
-    bool? autoUpdateChecksEnabled,
   }) {
     return AppSettings(
       measurementSystem: measurementSystem ?? this.measurementSystem,
@@ -73,8 +69,6 @@ class AppSettings {
       runUpdateCueMode: runUpdateCueMode ?? this.runUpdateCueMode,
       runUpdateMinutes: runUpdateMinutes ?? this.runUpdateMinutes,
       runUpdateDistance: runUpdateDistance ?? this.runUpdateDistance,
-      autoUpdateChecksEnabled:
-          autoUpdateChecksEnabled ?? this.autoUpdateChecksEnabled,
     );
   }
 }

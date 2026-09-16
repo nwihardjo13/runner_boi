@@ -25,7 +25,9 @@ void main() {
   test('compares semantic versions from release tags', () {
     expect(compareAppVersions('v1.0.1', '1.0.0'), greaterThan(0));
     expect(compareAppVersions('1.2.0', '1.10.0'), lessThan(0));
-    expect(compareAppVersions('v1.0.0+3', '1.0.0'), 0);
+    expect(compareAppVersions('v1.0.0+3', '1.0.0+2'), greaterThan(0));
+    expect(compareAppVersions('v1.0.0+3', '1.0.0+3'), 0);
+    expect(compareAppVersions('v1.0.0+3', '1.0.1+1'), lessThan(0));
   });
 
   test('detects update and opens apk asset URL', () async {
@@ -53,6 +55,23 @@ void main() {
 
     expect(opened, true);
     expect(openedUrl.toString(), 'https://example.com/runner-boi.apk');
+  });
+
+  test('detects newer build number for same app version', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final service = SelfUpdateService(
+      preferences: prefs,
+      log: log,
+      releaseFetcher: (_) async => _releaseJson(tag: 'v1.0.2+9'),
+      installedVersionLoader: () async =>
+          const InstalledAppVersion(version: '1.0.2', buildNumber: '8'),
+    );
+
+    final result = await service.checkForUpdate(force: true);
+
+    expect(result.status, UpdateCheckStatus.updateAvailable);
+    expect(result.release?.version, '1.0.2+9');
   });
 
   test('skips automatic check until daily interval elapses', () async {

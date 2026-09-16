@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../domain/models.dart';
@@ -28,7 +29,7 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
               Text(
-                'settings',
+                'Settings',
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 20),
@@ -155,18 +156,8 @@ class SettingsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: value.autoUpdateChecksEnabled,
-                      onChanged: (enabled) {
-                        ref
-                            .read(settingsControllerProvider.notifier)
-                            .saveSettings(
-                              value.copyWith(autoUpdateChecksEnabled: enabled),
-                            );
-                      },
-                      title: const Text('Check once per day'),
-                    ),
+                    _AppVersionRow(version: ref.watch(packageInfoProvider)),
+                    const SizedBox(height: 10),
                     OutlinedButton.icon(
                       key: const Key('checkForUpdatesButton'),
                       onPressed: () => _checkForUpdates(context, ref),
@@ -363,6 +354,32 @@ class SettingsScreen extends ConsumerWidget {
       file.path,
       mimeType: 'application/jsonl',
       name: file.uri.pathSegments.last,
+    );
+  }
+}
+
+class _AppVersionRow extends StatelessWidget {
+  const _AppVersionRow({required this.version});
+
+  final AsyncValue<PackageInfo> version;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = version.when(
+      data: (packageInfo) =>
+          '${packageInfo.version}+${packageInfo.buildNumber}',
+      loading: () => 'Loading...',
+      error: (_, _) => 'Unavailable',
+    );
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('App version'),
+      trailing: Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

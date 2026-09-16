@@ -25,7 +25,7 @@ class HistoryScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  'history',
+                  'History',
                   style: Theme.of(context).textTheme.headlineLarge,
                 ),
               ),

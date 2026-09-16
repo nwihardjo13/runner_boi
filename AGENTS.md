@@ -65,9 +65,10 @@ flutter build apk --debug
 
 - App version lives in `pubspec.yaml`.
 - Self-update checks read the latest GitHub Release for `nwihardjo13/runner_boi`.
-- Release tags should match app versions, for example `v1.0.1`.
-- Attach an `.apk` asset to releases so the app can open the APK URL directly.
-- Keep the update checker once-per-day by default and user-controlled from Settings.
+- Pushes to `main` publish release tags using app version plus GitHub run number, for example `v1.0.2+123`.
+- Attach or publish an `.apk` asset to releases so the app can open the APK URL directly.
+- Prefer arm64-v8a APK release assets for this personal Pixel-first app to keep download size down.
+- Keep the startup update checker once-per-day by default, with manual checks available from Settings.
 - Preserve dismissed-version behavior unless the user asks to change it.
 
 ## Git And CI

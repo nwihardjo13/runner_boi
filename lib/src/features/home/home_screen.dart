@@ -44,20 +44,24 @@ class HomeScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: FilledButton.icon(
+                          child: _HomeActionButton(
                             key: const Key('quickStartButton'),
                             onPressed: () =>
                                 _openEditor(ref, context, startFocused: true),
                             icon: const Icon(Icons.play_arrow),
-                            label: const Text('Start'),
+                            title: 'Start',
+                            subtitle: 'Build and run',
+                            accent: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: _HomeActionButton(
                             onPressed: () => _openEditor(ref, context),
                             icon: const Icon(Icons.add),
-                            label: const Text('New plan'),
+                            title: 'New plan',
+                            subtitle: 'Save template',
+                            accent: Theme.of(context).colorScheme.secondary,
                           ),
                         ),
                       ],
@@ -124,6 +128,73 @@ class HomeScreen extends ConsumerWidget {
       MaterialPageRoute(
         builder: (_) =>
             WorkoutEditorScreen(template: template, startFocused: startFocused),
+      ),
+    );
+  }
+}
+
+class _HomeActionButton extends StatelessWidget {
+  const _HomeActionButton({
+    super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final String title;
+  final String subtitle;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: accent.withValues(alpha: 0.42)),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          height: 112,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconTheme(
+                  data: IconThemeData(color: accent, size: 26),
+                  child: icon,
+                ),
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

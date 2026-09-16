@@ -19,7 +19,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('quickStartButton')), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'New plan'), findsOneWidget);
+    expect(find.text('New plan'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('quickStartButton')));
     await _pumpUi(tester);
@@ -39,7 +39,7 @@ void main() {
     );
     await _pumpUi(tester);
 
-    expect(find.text('settings'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Diagnostics'),
       320,

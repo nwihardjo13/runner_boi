@@ -15,11 +15,11 @@ Runner Boi is a Flutter Android app for segment-based running workouts. Build ru
 
 ## Download
 
-Manual workflow runs build a debug APK in GitHub Actions.
+Every push to `main` builds, verifies, and publishes a GitHub Release with an arm64 Android APK. Manual workflow runs and pull requests still run verification.
 
-1. Open the latest [Android emulator smoke](https://github.com/nwihardjo13/runner_boi/actions/workflows/android-emulator.yml) run.
-2. Download the `runner-boi-debug-apk` artifact.
-3. Unzip it and install `app-debug.apk` on the phone.
+1. Open the latest [release](https://github.com/nwihardjo13/runner_boi/releases/latest).
+2. Download the `runner-boi-...-arm64-v8a.apk` asset.
+3. Install it on the phone.
 
 Local debug APK path:
 
@@ -42,7 +42,7 @@ After installing, Runner Boi can check GitHub Releases once per day and prompt w
 - Configurable mid-run voice updates by time or distance.
 - Recoverable active run snapshot if the app process is closed mid-run.
 - Local run history with per-segment planned vs actual stats.
-- Persisted settings for units, pace mode, countdown length, voice cues, music pause/ducking, run updates, and update checks.
+- Persisted settings for units, pace mode, countdown length, voice cues, music pause/ducking, and run updates.
 - Exportable diagnostics logs for GPS, pace, distance, lifecycle, and app actions.
 - Self-update checks through GitHub Releases with daily prompts and manual Settings checks.
 
@@ -118,7 +118,7 @@ Release checklist:
 3. Create a GitHub Release tagged with the app version, for example `v1.0.1`.
 4. Attach an `.apk` asset.
 
-The app checks at most once per day on startup, lets the user skip a version, and has a manual check in Settings. Android still requires the user to approve sideloaded APK installation.
+On each `main` push, CI builds an arm64 APK, tags it with the app version plus GitHub run number, and publishes a release such as `v1.0.2+123`. The app checks at most once per day on startup, compares both version and build number, lets the user skip a version, and has a manual check in Settings. Android still requires the user to approve sideloaded APK installation.
 
 ## Verification
 
@@ -127,6 +127,7 @@ The app checks at most once per day on startup, lets the user skip a version, an
 - Workflow: `.github/workflows/android-emulator.yml`
 - E2E status: smoke coverage only. It boots the app, opens the plan editor, and verifies the diagnostics export surface.
 - Update coverage: self-update logic is tested with fake GitHub responses, not live network calls.
+- Release artifact: CI publishes an arm64-v8a APK to reduce APK size for modern Android phones.
 
 ## Test Backlog
 

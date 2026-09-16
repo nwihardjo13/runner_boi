@@ -56,16 +56,6 @@ class _AppShellState extends ConsumerState<AppShell>
 
   Future<void> _checkForUpdatesOnStartup() async {
     try {
-      final settings = await ref.read(settingsControllerProvider.future);
-      if (!settings.autoUpdateChecksEnabled) {
-        unawaited(
-          _logService.debug(
-            'updates',
-            'Startup self-update check skipped because setting is disabled',
-          ),
-        );
-        return;
-      }
       final service = await ref.read(selfUpdateServiceProvider.future);
       final result = await service.checkForUpdate();
       if (!mounted || !result.hasUpdate) return;

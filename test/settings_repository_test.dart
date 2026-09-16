@@ -14,7 +14,6 @@ void main() {
         runUpdateCueMode: RunUpdateCueMode.distance,
         runUpdateMinutes: 3,
         runUpdateDistance: 0.75,
-        autoUpdateChecksEnabled: false,
       ),
     );
 
@@ -23,7 +22,6 @@ void main() {
     expect(settings.runUpdateCueMode, RunUpdateCueMode.distance);
     expect(settings.runUpdateMinutes, 3);
     expect(settings.runUpdateDistance, 0.75);
-    expect(settings.autoUpdateChecksEnabled, false);
   });
 
   test('falls back to off for removed fixed update modes', () async {
@@ -38,6 +36,5 @@ void main() {
     expect(settings.runUpdateCueMode, RunUpdateCueMode.off);
     expect(settings.runUpdateMinutes, 1);
     expect(settings.runUpdateDistance, 1);
-    expect(settings.autoUpdateChecksEnabled, true);
   });
 }

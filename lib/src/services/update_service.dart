@@ -153,7 +153,7 @@ class SelfUpdateService {
       final release = parseGitHubRelease(releaseJson);
       final comparison = compareAppVersions(
         release.version,
-        currentVersion.version,
+        currentVersion.display,
       );
       if (comparison <= 0) {
         unawaited(
@@ -301,11 +301,13 @@ int compareAppVersions(String latest, String current) {
 }
 
 class _ParsedVersion implements Comparable<_ParsedVersion> {
-  const _ParsedVersion(this.parts);
+  const _ParsedVersion(this.parts, this.build);
 
   factory _ParsedVersion.parse(String raw) {
     final normalized = normalizeAppVersion(raw);
-    final base = normalized.split('+').first;
+    final pieces = normalized.split('+');
+    final base = pieces.first;
+    final build = pieces.length > 1 ? int.tryParse(pieces[1]) ?? 0 : 0;
     return _ParsedVersion(
       base
           .split('.')
@@ -314,10 +316,12 @@ class _ParsedVersion implements Comparable<_ParsedVersion> {
                 int.tryParse(RegExp(r'^\d+').stringMatch(part) ?? '0') ?? 0,
           )
           .toList(),
+      build,
     );
   }
 
   final List<int> parts;
+  final int build;
 
   @override
   int compareTo(_ParsedVersion other) {
@@ -329,7 +333,7 @@ class _ParsedVersion implements Comparable<_ParsedVersion> {
       final right = index < other.parts.length ? other.parts[index] : 0;
       if (left != right) return left.compareTo(right);
     }
-    return 0;
+    return build.compareTo(other.build);
   }
 }
 
