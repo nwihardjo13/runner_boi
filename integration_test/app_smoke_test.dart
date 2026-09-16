@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:runner_boi/src/app.dart';
-import 'package:runner_boi/src/features/settings/settings_screen.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -33,22 +32,16 @@ void main() {
     expect(find.text('Segments'), findsOneWidget);
   });
 
-  testWidgets('shows diagnostics settings', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: SettingsScreen())),
-    );
+  testWidgets('opens settings from bottom navigation', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: RunnerBoiApp()));
     await _pumpUi(tester);
 
-    expect(find.text('Settings'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Diagnostics'),
-      320,
-      scrollable: find.byType(Scrollable),
-    );
+    await tester.tap(find.text('Settings'));
     await _pumpUi(tester);
 
-    expect(find.text('Diagnostics'), findsOneWidget);
-    expect(find.byKey(const Key('exportLogsButton')), findsOneWidget);
+    expect(find.text('Settings'), findsWidgets);
+    expect(find.text('App version'), findsOneWidget);
+    expect(find.byKey(const Key('checkForUpdatesButton')), findsOneWidget);
   });
 }
 
