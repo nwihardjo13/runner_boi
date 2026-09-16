@@ -324,6 +324,10 @@ class SettingsScreen extends ConsumerWidget {
         await showUpdatePrompt(context, ref, result);
         return;
       }
+      if (result.status == UpdateCheckStatus.upToDate) {
+        await _showUpToDateDialog(context, result);
+        return;
+      }
       final message = switch (result.status) {
         UpdateCheckStatus.upToDate => 'Runner Boi is up to date',
         UpdateCheckStatus.unavailable =>
@@ -347,6 +351,31 @@ class SettingsScreen extends ConsumerWidget {
         SnackBar(content: Text('Could not check updates: $error')),
       );
     }
+  }
+
+  Future<void> _showUpToDateDialog(
+    BuildContext context,
+    UpdateCheckResult result,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(
+          Icons.check_circle_outline,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        title: const Text('Runner Boi is up to date'),
+        content: Text(
+          'You are running version ${result.currentVersion.display}.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 
   XFile _xFile(File file) {

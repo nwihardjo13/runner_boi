@@ -35,6 +35,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   var _index = 0;
+  var _previousIndex = 0;
   late final AppLogService _logService;
 
   @override
@@ -152,12 +153,31 @@ class _AppShellState extends ConsumerState<AppShell>
       const HistoryScreen(),
       const SettingsScreen(),
     ];
+    final isForward = _index >= _previousIndex;
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: screens),
+      body: ClipRect(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final offsetAnimation = Tween<Offset>(
+              begin: Offset(isForward ? 0.04 : -0.04, 0),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: offsetAnimation, child: child),
+            );
+          },
+          child: KeyedSubtree(key: ValueKey(_index), child: screens[_index]),
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (index) {
+          if (index == _index) return;
           unawaited(
             ref
                 .read(logServiceProvider)
@@ -171,7 +191,10 @@ class _AppShellState extends ConsumerState<AppShell>
                   },
                 ),
           );
-          setState(() => _index = index);
+          setState(() {
+            _previousIndex = _index;
+            _index = index;
+          });
         },
         destinations: const [
           NavigationDestination(
