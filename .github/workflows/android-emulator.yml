@@ -93,7 +93,20 @@ jobs:
           echo "build=${build}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare Android signing key
+        shell: bash
+        env:
+          RUNNER_BOI_ANDROID_KEYSTORE_BASE64: ${{ secrets.RUNNER_BOI_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$RUNNER_BOI_ANDROID_KEYSTORE_BASE64"
+          echo "$RUNNER_BOI_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/runner-boi-release.keystore"
+
       - name: Build arm64 release APK
+        env:
+          RUNNER_BOI_ANDROID_KEYSTORE: ${{ runner.temp }}/runner-boi-release.keystore
+          RUNNER_BOI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.RUNNER_BOI_ANDROID_KEYSTORE_PASSWORD }}
+          RUNNER_BOI_ANDROID_KEY_ALIAS: ${{ secrets.RUNNER_BOI_ANDROID_KEY_ALIAS }}
+          RUNNER_BOI_ANDROID_KEY_PASSWORD: ${{ secrets.RUNNER_BOI_ANDROID_KEY_PASSWORD }}
         run: |
           flutter build apk --release --split-per-abi \
             --build-name "${{ steps.version.outputs.version }}" \
