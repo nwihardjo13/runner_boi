@@ -35,6 +35,8 @@ class SettingsScreen extends ConsumerWidget {
               _Section(
                 title: 'Units',
                 child: SegmentedButton<MeasurementSystem>(
+                  expandedInsets: EdgeInsets.zero,
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(
                       value: MeasurementSystem.metric,
@@ -58,6 +60,8 @@ class SettingsScreen extends ConsumerWidget {
               _Section(
                 title: 'Pace display',
                 child: SegmentedButton<PaceDisplayMode>(
+                  expandedInsets: EdgeInsets.zero,
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(
                       value: PaceDisplayMode.instant,
@@ -421,6 +425,8 @@ class _RunUpdateSectionState extends State<_RunUpdateSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SegmentedButton<RunUpdateCueMode>(
+          expandedInsets: EdgeInsets.zero,
+          showSelectedIcon: false,
           segments: const [
             ButtonSegment(value: RunUpdateCueMode.off, label: Text('Off')),
             ButtonSegment(value: RunUpdateCueMode.time, label: Text('Time')),
