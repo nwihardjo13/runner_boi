@@ -48,6 +48,8 @@ dependencies:
   collection: ^1.19.1
   geolocator_android: ^5.0.3
   share_plus: ^13.3.0
+  package_info_plus: ^10.2.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

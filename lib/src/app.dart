@@ -7,6 +7,7 @@ import 'features/history/history_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/providers.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/updates/update_prompt.dart';
 import 'services/log_service.dart';
 import 'theme/app_theme.dart';
 
@@ -41,6 +42,9 @@ class _AppShellState extends ConsumerState<AppShell>
     super.initState();
     _logService = ref.read(logServiceProvider);
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForUpdatesOnStartup());
+    });
     unawaited(
       _logService.info(
         'navigation',
@@ -48,6 +52,34 @@ class _AppShellState extends ConsumerState<AppShell>
         data: {'tab': 'Plans'},
       ),
     );
+  }
+
+  Future<void> _checkForUpdatesOnStartup() async {
+    try {
+      final settings = await ref.read(settingsControllerProvider.future);
+      if (!settings.autoUpdateChecksEnabled) {
+        unawaited(
+          _logService.debug(
+            'updates',
+            'Startup self-update check skipped because setting is disabled',
+          ),
+        );
+        return;
+      }
+      final service = await ref.read(selfUpdateServiceProvider.future);
+      final result = await service.checkForUpdate();
+      if (!mounted || !result.hasUpdate) return;
+      await showUpdatePrompt(context, ref, result);
+    } catch (error, stackTrace) {
+      unawaited(
+        _logService.error(
+          'updates',
+          'Startup self-update check failed',
+          error: error,
+          stackTrace: stackTrace,
+        ),
+      );
+    }
   }
 
   @override

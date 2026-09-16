@@ -15,7 +15,7 @@ Runner Boi is a Flutter Android app for segment-based running workouts. Build ru
 
 ## Download
 
-Every push to `main` builds a debug APK in GitHub Actions.
+Manual workflow runs build a debug APK in GitHub Actions.
 
 1. Open the latest [Android emulator smoke](https://github.com/nwihardjo13/runner_boi/actions/workflows/android-emulator.yml) run.
 2. Download the `runner-boi-debug-apk` artifact.
@@ -41,6 +41,7 @@ build/app/outputs/flutter-apk/app-debug.apk
 - Local run history with per-segment planned vs actual stats.
 - Persisted settings for units, pace mode, countdown length, voice cues, and audio ducking.
 - Exportable diagnostics logs for GPS, pace, distance, lifecycle, and app actions.
+- Self-update checks through GitHub Releases with daily prompts and manual Settings checks.
 
 ## Scope
 
@@ -56,7 +57,7 @@ Data stays on device:
 - Segment results
 - Diagnostics logs
 
-The app has no backend, account system, analytics, or cloud upload. Exported diagnostics logs can include GPS coordinates and should be treated as sensitive.
+The app has no custom backend, account system, analytics, or cloud upload. It can contact GitHub Releases to check for app updates. Exported diagnostics logs can include GPS coordinates and should be treated as sensitive.
 
 ## Android Access
 
@@ -70,6 +71,7 @@ Runner Boi requests location and foreground-service permissions for live GPS pac
 - shared_preferences for settings
 - geolocator for GPS/foreground location
 - flutter_tts + audio_session for cues and ducking
+- package_info_plus + url_launcher for release update checks
 - GitHub Actions for APK artifact and emulator smoke test
 
 ## Layout
@@ -101,6 +103,10 @@ Install with cable:
 ```sh
 adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
+
+## Releases
+
+Self-update checks read the latest GitHub Release for `nwihardjo13/runner_boi`. Tag releases with the app version, for example `v1.0.1`, and attach an `.apk` asset. The app checks at most once per day on startup, lets the user skip a version, and has a manual check in Settings.
 
 ## Verification
 

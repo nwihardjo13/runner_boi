@@ -146,6 +146,7 @@ class SettingsRepository {
   static const _runUpdateCueModeKey = 'run_update_cue_mode';
   static const _runUpdateMinutesKey = 'run_update_minutes';
   static const _runUpdateDistanceKey = 'run_update_distance';
+  static const _autoUpdateChecksKey = 'auto_update_checks';
 
   final SharedPreferences _prefs;
   final LocaleLike _locale;
@@ -176,6 +177,9 @@ class SettingsRepository {
           _prefs.getInt(_runUpdateMinutesKey) ?? defaults.runUpdateMinutes,
       runUpdateDistance:
           _prefs.getDouble(_runUpdateDistanceKey) ?? defaults.runUpdateDistance,
+      autoUpdateChecksEnabled:
+          _prefs.getBool(_autoUpdateChecksKey) ??
+          defaults.autoUpdateChecksEnabled,
     );
   }
 
@@ -191,6 +195,10 @@ class SettingsRepository {
     );
     await _prefs.setInt(_runUpdateMinutesKey, settings.runUpdateMinutes);
     await _prefs.setDouble(_runUpdateDistanceKey, settings.runUpdateDistance);
+    await _prefs.setBool(
+      _autoUpdateChecksKey,
+      settings.autoUpdateChecksEnabled,
+    );
   }
 
   T _enumValue<T extends Enum>(List<T> values, String? name, T fallback) {

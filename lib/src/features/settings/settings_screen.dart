@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../domain/models.dart';
+import '../../services/update_service.dart';
 import '../providers.dart';
+import '../updates/update_prompt.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -142,6 +144,32 @@ class SettingsScreen extends ConsumerWidget {
                         .read(settingsControllerProvider.notifier)
                         .saveSettings(next);
                   },
+                ),
+              ),
+              _Section(
+                title: 'Updates',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: value.autoUpdateChecksEnabled,
+                      onChanged: (enabled) {
+                        ref
+                            .read(settingsControllerProvider.notifier)
+                            .saveSettings(
+                              value.copyWith(autoUpdateChecksEnabled: enabled),
+                            );
+                      },
+                      title: const Text('Check once per day'),
+                    ),
+                    OutlinedButton.icon(
+                      key: const Key('checkForUpdatesButton'),
+                      onPressed: () => _checkForUpdates(context, ref),
+                      icon: const Icon(Icons.system_update_alt),
+                      label: const Text('Check for updates'),
+                    ),
+                  ],
                 ),
               ),
               _Section(
@@ -282,6 +310,46 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) return;
       messenger.showSnackBar(
         SnackBar(content: Text('Could not export logs: $error')),
+      );
+    }
+  }
+
+  Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final log = ref.read(logServiceProvider);
+    unawaited(log.info('updates', 'Manual self-update check tapped'));
+    try {
+      final service = await ref.read(selfUpdateServiceProvider.future);
+      final result = await service.checkForUpdate(
+        force: true,
+        respectDismissedVersion: false,
+      );
+      if (!context.mounted) return;
+      if (result.hasUpdate) {
+        await showUpdatePrompt(context, ref, result);
+        return;
+      }
+      final message = switch (result.status) {
+        UpdateCheckStatus.upToDate => 'Runner Boi is up to date',
+        UpdateCheckStatus.unavailable =>
+          'Could not check updates: ${result.message ?? 'unknown error'}',
+        UpdateCheckStatus.dismissed => 'Latest update is skipped for now',
+        UpdateCheckStatus.skipped => 'Update check skipped',
+        UpdateCheckStatus.updateAvailable => 'Update available',
+      };
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } catch (error, stackTrace) {
+      unawaited(
+        log.error(
+          'updates',
+          'Manual self-update check failed',
+          error: error,
+          stackTrace: stackTrace,
+        ),
+      );
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not check updates: $error')),
       );
     }
   }

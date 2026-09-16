@@ -9,6 +9,7 @@ import '../data/repositories.dart';
 import '../domain/models.dart';
 import '../services/location_service.dart';
 import '../services/log_service.dart';
+import '../services/update_service.dart';
 import '../services/voice_service.dart';
 
 final localeProvider = Provider<LocaleLike>((ref) {
@@ -68,4 +69,14 @@ final voiceServiceProvider = Provider<VoiceService>((ref) {
   service.configure();
   ref.onDispose(service.stop);
   return service;
+});
+
+final selfUpdateServiceProvider = FutureProvider<SelfUpdateService>((
+  ref,
+) async {
+  final prefs = await ref.watch(sharedPreferencesProvider.future);
+  return SelfUpdateService(
+    preferences: prefs,
+    log: ref.watch(logServiceProvider),
+  );
 });

@@ -57,6 +57,7 @@ class SettingsController extends AsyncNotifier<AppSettings> {
       'runUpdateCueMode': settings.runUpdateCueMode,
       'runUpdateMinutes': settings.runUpdateMinutes,
       'runUpdateDistance': settings.runUpdateDistance,
+      'autoUpdateChecksEnabled': settings.autoUpdateChecksEnabled,
     };
   }
 }
