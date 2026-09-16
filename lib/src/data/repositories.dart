@@ -144,6 +144,8 @@ class SettingsRepository {
   static const _voiceKey = 'voice_cues';
   static const _duckAudioKey = 'duck_audio';
   static const _runUpdateCueModeKey = 'run_update_cue_mode';
+  static const _runUpdateMinutesKey = 'run_update_minutes';
+  static const _runUpdateDistanceKey = 'run_update_distance';
 
   final SharedPreferences _prefs;
   final LocaleLike _locale;
@@ -170,6 +172,10 @@ class SettingsRepository {
         _prefs.getString(_runUpdateCueModeKey),
         defaults.runUpdateCueMode,
       ),
+      runUpdateMinutes:
+          _prefs.getInt(_runUpdateMinutesKey) ?? defaults.runUpdateMinutes,
+      runUpdateDistance:
+          _prefs.getDouble(_runUpdateDistanceKey) ?? defaults.runUpdateDistance,
     );
   }
 
@@ -183,6 +189,8 @@ class SettingsRepository {
       _runUpdateCueModeKey,
       settings.runUpdateCueMode.name,
     );
+    await _prefs.setInt(_runUpdateMinutesKey, settings.runUpdateMinutes);
+    await _prefs.setDouble(_runUpdateDistanceKey, settings.runUpdateDistance);
   }
 
   T _enumValue<T extends Enum>(List<T> values, String? name, T fallback) {

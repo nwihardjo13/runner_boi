@@ -55,6 +55,8 @@ class SettingsController extends AsyncNotifier<AppSettings> {
       'voiceCuesEnabled': settings.voiceCuesEnabled,
       'duckAudio': settings.duckAudio,
       'runUpdateCueMode': settings.runUpdateCueMode,
+      'runUpdateMinutes': settings.runUpdateMinutes,
+      'runUpdateDistance': settings.runUpdateDistance,
     };
   }
 }

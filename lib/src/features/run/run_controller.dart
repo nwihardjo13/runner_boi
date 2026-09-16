@@ -505,10 +505,15 @@ class RunController extends Notifier<RunState> {
     final segment = state.currentSegment;
     if (segment == null) return;
     final settings = ref.read(settingsControllerProvider).value;
+    final timeUpdateIntervalSeconds =
+        (settings == null || settings.runUpdateCueMode != RunUpdateCueMode.time)
+        ? null
+        : max(1, settings.runUpdateMinutes) * 60;
     if (settings != null &&
-        settings.runUpdateCueMode == RunUpdateCueMode.everyMinute &&
-        state.elapsedSegmentSeconds >= 60 &&
-        state.elapsedSegmentSeconds % 60 == 0 &&
+        timeUpdateIntervalSeconds != null &&
+        segment.kind == SegmentKind.run &&
+        state.elapsedSegmentSeconds >= timeUpdateIntervalSeconds &&
+        state.elapsedSegmentSeconds % timeUpdateIntervalSeconds == 0 &&
         state.elapsedSegmentSeconds != _lastTimeUpdateSecond) {
       _lastTimeUpdateSecond = state.elapsedSegmentSeconds;
       _announceRunUpdate(settings, trigger: 'time');
@@ -649,15 +654,12 @@ class RunController extends Notifier<RunState> {
 
   double? _updateCueDistanceMeters(AppSettings settings) {
     return switch (settings.runUpdateCueMode) {
-      RunUpdateCueMode.everyHalfDistance =>
-        settings.measurementSystem == MeasurementSystem.imperial
-            ? metersPerMile / 2
-            : 500,
-      RunUpdateCueMode.everyDistance =>
-        settings.measurementSystem == MeasurementSystem.imperial
-            ? metersPerMile
-            : 1000,
-      RunUpdateCueMode.off || RunUpdateCueMode.everyMinute => null,
+      RunUpdateCueMode.distance =>
+        max(0.1, settings.runUpdateDistance) *
+            (settings.measurementSystem == MeasurementSystem.imperial
+                ? metersPerMile
+                : 1000),
+      RunUpdateCueMode.off || RunUpdateCueMode.time => null,
     };
   }
 

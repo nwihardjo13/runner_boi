@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../domain/models.dart';
@@ -134,45 +135,13 @@ class SettingsScreen extends ConsumerWidget {
               ),
               _Section(
                 title: 'Run updates',
-                child: SegmentedButton<RunUpdateCueMode>(
-                  segments: [
-                    const ButtonSegment(
-                      value: RunUpdateCueMode.off,
-                      label: Text('Off'),
-                    ),
-                    const ButtonSegment(
-                      value: RunUpdateCueMode.everyMinute,
-                      label: Text('1 min'),
-                    ),
-                    ButtonSegment(
-                      value: RunUpdateCueMode.everyHalfDistance,
-                      label: Text(
-                        value.measurementSystem == MeasurementSystem.imperial
-                            ? '0.5 mi'
-                            : '0.5 km',
-                      ),
-                    ),
-                    ButtonSegment(
-                      value: RunUpdateCueMode.everyDistance,
-                      label: Text(
-                        value.measurementSystem == MeasurementSystem.imperial
-                            ? '1 mi'
-                            : '1 km',
-                      ),
-                    ),
-                  ],
-                  selected: {value.runUpdateCueMode},
-                  onSelectionChanged: value.voiceCuesEnabled
-                      ? (selected) {
-                          ref
-                              .read(settingsControllerProvider.notifier)
-                              .saveSettings(
-                                value.copyWith(
-                                  runUpdateCueMode: selected.first,
-                                ),
-                              );
-                        }
-                      : null,
+                child: _RunUpdateSection(
+                  settings: value,
+                  onChanged: (next) {
+                    ref
+                        .read(settingsControllerProvider.notifier)
+                        .saveSettings(next);
+                  },
                 ),
               ),
               _Section(
@@ -322,6 +291,186 @@ class SettingsScreen extends ConsumerWidget {
       file.path,
       mimeType: 'application/jsonl',
       name: file.uri.pathSegments.last,
+    );
+  }
+}
+
+class _RunUpdateSection extends StatefulWidget {
+  const _RunUpdateSection({required this.settings, required this.onChanged});
+
+  final AppSettings settings;
+  final ValueChanged<AppSettings> onChanged;
+
+  @override
+  State<_RunUpdateSection> createState() => _RunUpdateSectionState();
+}
+
+class _RunUpdateSectionState extends State<_RunUpdateSection> {
+  late final TextEditingController _minutesController;
+  late final TextEditingController _distanceController;
+
+  @override
+  void initState() {
+    super.initState();
+    _minutesController = TextEditingController(
+      text: widget.settings.runUpdateMinutes.toString(),
+    );
+    _distanceController = TextEditingController(
+      text: _formatDistanceInput(widget.settings.runUpdateDistance),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _RunUpdateSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings.runUpdateMinutes !=
+        widget.settings.runUpdateMinutes) {
+      _minutesController.text = widget.settings.runUpdateMinutes.toString();
+    }
+    if (oldWidget.settings.runUpdateDistance !=
+        widget.settings.runUpdateDistance) {
+      _distanceController.text = _formatDistanceInput(
+        widget.settings.runUpdateDistance,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _minutesController.dispose();
+    _distanceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = widget.settings;
+    final enabled = settings.voiceCuesEnabled;
+    final distanceUnit =
+        settings.measurementSystem == MeasurementSystem.imperial ? 'mi' : 'km';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedButton<RunUpdateCueMode>(
+          segments: const [
+            ButtonSegment(value: RunUpdateCueMode.off, label: Text('Off')),
+            ButtonSegment(value: RunUpdateCueMode.time, label: Text('Time')),
+            ButtonSegment(
+              value: RunUpdateCueMode.distance,
+              label: Text('Distance'),
+            ),
+          ],
+          selected: {settings.runUpdateCueMode},
+          onSelectionChanged: enabled
+              ? (selected) {
+                  widget.onChanged(
+                    settings.copyWith(runUpdateCueMode: selected.first),
+                  );
+                }
+              : null,
+        ),
+        if (!enabled) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Enable voice cues to use run updates.',
+            style: TextStyle(color: Theme.of(context).disabledColor),
+          ),
+        ],
+        if (enabled && settings.runUpdateCueMode == RunUpdateCueMode.time) ...[
+          const SizedBox(height: 12),
+          _IntervalInput(
+            controller: _minutesController,
+            label: 'Every',
+            suffix: 'min',
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            keyboardType: TextInputType.number,
+            onApply: _saveMinutes,
+          ),
+        ],
+        if (enabled &&
+            settings.runUpdateCueMode == RunUpdateCueMode.distance) ...[
+          const SizedBox(height: 12),
+          _IntervalInput(
+            controller: _distanceController,
+            label: 'Every',
+            suffix: distanceUnit,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+            ],
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onApply: _saveDistance,
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _saveMinutes() {
+    final parsed = int.tryParse(_minutesController.text);
+    final minutes = (parsed ?? widget.settings.runUpdateMinutes)
+        .clamp(1, 240)
+        .toInt();
+    _minutesController.text = minutes.toString();
+    widget.onChanged(widget.settings.copyWith(runUpdateMinutes: minutes));
+  }
+
+  void _saveDistance() {
+    final parsed = double.tryParse(_distanceController.text);
+    final distance = (parsed ?? widget.settings.runUpdateDistance)
+        .clamp(0.1, 100)
+        .toDouble();
+    _distanceController.text = _formatDistanceInput(distance);
+    widget.onChanged(widget.settings.copyWith(runUpdateDistance: distance));
+  }
+
+  String _formatDistanceInput(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value
+        .toStringAsFixed(2)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+}
+
+class _IntervalInput extends StatelessWidget {
+  const _IntervalInput({
+    required this.controller,
+    required this.label,
+    required this.suffix,
+    required this.inputFormatters,
+    required this.keyboardType,
+    required this.onApply,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String suffix;
+  final List<TextInputFormatter> inputFormatters;
+  final TextInputType keyboardType;
+  final VoidCallback onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(labelText: label, suffixText: suffix),
+            inputFormatters: inputFormatters,
+            keyboardType: keyboardType,
+            onEditingComplete: onApply,
+            onSubmitted: (_) => onApply(),
+          ),
+        ),
+        const SizedBox(width: 10),
+        IconButton.filledTonal(
+          onPressed: onApply,
+          icon: const Icon(Icons.check),
+          tooltip: 'Apply',
+        ),
+      ],
     );
   }
 }
