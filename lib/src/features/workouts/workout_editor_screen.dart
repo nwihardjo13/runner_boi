@@ -626,6 +626,8 @@ class _SegmentDialogState extends State<_SegmentDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SegmentedButton<SegmentKind>(
+              expandedInsets: EdgeInsets.zero,
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(value: SegmentKind.run, label: Text('Run')),
                 ButtonSegment(value: SegmentKind.rest, label: Text('Rest')),
@@ -636,6 +638,8 @@ class _SegmentDialogState extends State<_SegmentDialog> {
             ),
             const SizedBox(height: 14),
             SegmentedButton<SegmentTargetType>(
+              expandedInsets: EdgeInsets.zero,
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(
                   value: SegmentTargetType.time,
@@ -676,6 +680,8 @@ class _SegmentDialogState extends State<_SegmentDialog> {
                   if (widget.units == MeasurementSystem.metric) ...[
                     const SizedBox(width: 8),
                     SegmentedButton<String>(
+                      expandedInsets: EdgeInsets.zero,
+                      showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(value: 'm', label: Text('m')),
                         ButtonSegment(value: 'km', label: Text('km')),
