@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../domain/models.dart';
 import '../../services/update_service.dart';
+import '../../theme/app_theme.dart';
 import '../providers.dart';
 import '../updates/update_prompt.dart';
 
@@ -18,6 +19,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsControllerProvider);
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
 
     return Scaffold(
       body: SafeArea(
@@ -118,27 +120,38 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: value.voiceCuesEnabled,
-                onChanged: (enabled) {
-                  ref
-                      .read(settingsControllerProvider.notifier)
-                      .saveSettings(value.copyWith(voiceCuesEnabled: enabled));
-                },
-                title: const Text('Voice cues'),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: value.duckAudio,
-                onChanged: value.voiceCuesEnabled
-                    ? (enabled) {
+              _Section(
+                title: 'Audio',
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: value.voiceCuesEnabled,
+                      onChanged: (enabled) {
                         ref
                             .read(settingsControllerProvider.notifier)
-                            .saveSettings(value.copyWith(duckAudio: enabled));
-                      }
-                    : null,
-                title: const Text('Pause music during cues'),
+                            .saveSettings(
+                              value.copyWith(voiceCuesEnabled: enabled),
+                            );
+                      },
+                      title: const Text('Voice cues'),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: value.duckAudio,
+                      onChanged: value.voiceCuesEnabled
+                          ? (enabled) {
+                              ref
+                                  .read(settingsControllerProvider.notifier)
+                                  .saveSettings(
+                                    value.copyWith(duckAudio: enabled),
+                                  );
+                            }
+                          : null,
+                      title: const Text('Pause music during cues'),
+                    ),
+                  ],
+                ),
               ),
               _Section(
                 title: 'Run updates',
@@ -193,6 +206,12 @@ class SettingsScreen extends ConsumerWidget {
                 onPressed: () => _deleteAllRuns(context, ref),
                 icon: const Icon(Icons.delete_sweep_outlined),
                 label: const Text('Delete all runs'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: runnerColors.danger,
+                  side: BorderSide(
+                    color: runnerColors.danger.withValues(alpha: 0.52),
+                  ),
+                ),
               ),
             ],
           ),
@@ -603,6 +622,7 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 22),
       child: Column(
@@ -613,7 +633,16 @@ class _Section extends StatelessWidget {
             style: Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(height: 10),
-          child,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: runnerColors.panelElevated,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: runnerColors.border),
+            ),
+            child: child,
+          ),
         ],
       ),
     );

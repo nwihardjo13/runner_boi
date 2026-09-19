@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   static ThemeData dark() {
-    const bg = Color(0xFF070807);
-    const surface = Color(0xFF101310);
-    const panel = Color(0xFF171C18);
-    const text = Color(0xFFF2F5EE);
-    const muted = Color(0xFF9EA89C);
-    const accent = Color(0xFFB7FF3C);
-    const cyan = Color(0xFF20D6C7);
+    const bg = Color(0xFF070907);
+    const surface = Color(0xFF10140F);
+    const panel = Color(0xFF171D16);
+    const panelElevated = Color(0xFF1D251B);
+    const border = Color(0xFF334030);
+    const text = Color(0xFFF4F7EF);
+    const muted = Color(0xFFA4B09F);
+    const accent = Color(0xFFB8FF3D);
+    const cyan = Color(0xFF24D6C8);
+    const rest = Color(0xFFFFB84D);
+    const danger = Color(0xFFFF5C39);
 
     final scheme = ColorScheme.fromSeed(
       brightness: Brightness.dark,
@@ -16,6 +20,8 @@ class AppTheme {
       surface: surface,
       primary: accent,
       secondary: cyan,
+      tertiary: rest,
+      error: danger,
       onSurface: text,
     );
 
@@ -25,6 +31,13 @@ class AppTheme {
       scaffoldBackgroundColor: bg,
       colorScheme: scheme,
       fontFamily: 'Roboto',
+      appBarTheme: const AppBarTheme(
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: bg,
+        foregroundColor: text,
+      ),
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 72,
@@ -62,12 +75,17 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Color(0xFF293029)),
+          side: const BorderSide(color: border),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
-        indicatorColor: accent.withValues(alpha: 0.18),
+        indicatorColor: accent.withValues(alpha: 0.16),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected) ? accent : muted,
+          ),
+        ),
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
@@ -85,33 +103,107 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: text,
           minimumSize: const Size(48, 48),
-          side: const BorderSide(color: Color(0xFF3A443A)),
+          side: const BorderSide(color: border),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: text,
+          disabledForegroundColor: muted.withValues(alpha: 0.45),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF0D100D),
+        fillColor: surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF2E382E)),
+          borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF2E382E)),
+          borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: accent, width: 2),
         ),
       ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? accent.withValues(alpha: 0.18)
+                : surface,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected) ? accent : text,
+          ),
+          side: WidgetStateProperty.resolveWith(
+            (states) => BorderSide(
+              color: states.contains(WidgetState.selected) ? accent : border,
+            ),
+          ),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          textStyle: WidgetStateProperty.all(
+            const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: accent,
+        inactiveTrackColor: border,
+        thumbColor: accent,
+        overlayColor: accent.withValues(alpha: 0.14),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? accent : muted,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? accent.withValues(alpha: 0.24)
+              : border.withValues(alpha: 0.72),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: panel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: border),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: panelElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: border),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: panelElevated,
+        contentTextStyle: const TextStyle(color: text),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        behavior: SnackBarBehavior.floating,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: accent,
+        linearTrackColor: border,
+      ),
       extensions: const [
         RunnerColors(
           success: accent,
           info: cyan,
-          warning: Color(0xFFFFB020),
-          danger: Color(0xFFFF5C39),
+          warning: rest,
+          danger: danger,
           muted: muted,
+          panel: panel,
+          panelElevated: panelElevated,
+          border: border,
+          runSurface: Color(0xFF182211),
+          restSurface: Color(0xFF211B12),
         ),
       ],
     );
@@ -125,6 +217,11 @@ class RunnerColors extends ThemeExtension<RunnerColors> {
     required this.warning,
     required this.danger,
     required this.muted,
+    required this.panel,
+    required this.panelElevated,
+    required this.border,
+    required this.runSurface,
+    required this.restSurface,
   });
 
   final Color success;
@@ -132,6 +229,11 @@ class RunnerColors extends ThemeExtension<RunnerColors> {
   final Color warning;
   final Color danger;
   final Color muted;
+  final Color panel;
+  final Color panelElevated;
+  final Color border;
+  final Color runSurface;
+  final Color restSurface;
 
   @override
   RunnerColors copyWith({
@@ -140,6 +242,11 @@ class RunnerColors extends ThemeExtension<RunnerColors> {
     Color? warning,
     Color? danger,
     Color? muted,
+    Color? panel,
+    Color? panelElevated,
+    Color? border,
+    Color? runSurface,
+    Color? restSurface,
   }) {
     return RunnerColors(
       success: success ?? this.success,
@@ -147,6 +254,11 @@ class RunnerColors extends ThemeExtension<RunnerColors> {
       warning: warning ?? this.warning,
       danger: danger ?? this.danger,
       muted: muted ?? this.muted,
+      panel: panel ?? this.panel,
+      panelElevated: panelElevated ?? this.panelElevated,
+      border: border ?? this.border,
+      runSurface: runSurface ?? this.runSurface,
+      restSurface: restSurface ?? this.restSurface,
     );
   }
 
@@ -159,6 +271,11 @@ class RunnerColors extends ThemeExtension<RunnerColors> {
       warning: Color.lerp(warning, other.warning, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
       muted: Color.lerp(muted, other.muted, t)!,
+      panel: Color.lerp(panel, other.panel, t)!,
+      panelElevated: Color.lerp(panelElevated, other.panelElevated, t)!,
+      border: Color.lerp(border, other.border, t)!,
+      runSurface: Color.lerp(runSurface, other.runSurface, t)!,
+      restSurface: Color.lerp(restSurface, other.restSurface, t)!,
     );
   }
 }

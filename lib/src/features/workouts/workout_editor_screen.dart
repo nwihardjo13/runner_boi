@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/formatters.dart';
 import '../../domain/models.dart';
+import '../../theme/app_theme.dart';
 import '../providers.dart';
 import '../run/run_screen.dart';
 
@@ -66,6 +67,7 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     final units = settings.value?.measurementSystem ?? MeasurementSystem.metric;
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
 
     return Scaffold(
       appBar: AppBar(
@@ -107,7 +109,7 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
                     icon: const Icon(Icons.self_improvement),
                     title: 'Add rest',
                     subtitle: 'Recovery interval',
-                    accent: Theme.of(context).colorScheme.tertiary,
+                    accent: runnerColors.warning,
                   ),
                 ),
               ],
@@ -444,9 +446,10 @@ class _SegmentActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     final textTheme = Theme.of(context).textTheme;
     return Material(
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+      color: runnerColors.panelElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: accent.withValues(alpha: 0.42)),
@@ -510,12 +513,18 @@ class _SegmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRest = segment.kind == SegmentKind.rest;
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
+    final accent = isRest ? runnerColors.warning : runnerColors.success;
     return Card(
+      color: isRest ? runnerColors.restSurface : runnerColors.runSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: accent.withValues(alpha: 0.42)),
+      ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isRest
-              ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.18)
-              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+          backgroundColor: accent.withValues(alpha: 0.18),
+          foregroundColor: accent,
           child: Text('${index + 1}'),
         ),
         title: Text(isRest ? 'Rest' : 'Run'),
@@ -896,11 +905,13 @@ class _EmptySegments extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF303A30)),
+        color: runnerColors.panelElevated,
+        border: Border.all(color: runnerColors.border),
       ),
       child: const Text('Add a run or rest segment to start.'),
     );

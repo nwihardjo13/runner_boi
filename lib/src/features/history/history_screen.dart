@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/formatters.dart';
 import '../../domain/models.dart';
+import '../../theme/app_theme.dart';
 import '../providers.dart';
 
 class HistoryScreen extends ConsumerWidget {
@@ -151,11 +152,13 @@ class _HistoryMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF303A30)),
+        color: runnerColors.panelElevated,
+        border: Border.all(color: runnerColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,15 +183,22 @@ class _SegmentResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C0F0C),
+        color: runnerColors.panelElevated,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: runnerColors.border),
       ),
       child: Row(
         children: [
-          CircleAvatar(radius: 14, child: Text('${result.segmentIndex + 1}')),
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: runnerColors.success.withValues(alpha: 0.18),
+            foregroundColor: runnerColors.success,
+            child: Text('${result.segmentIndex + 1}'),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

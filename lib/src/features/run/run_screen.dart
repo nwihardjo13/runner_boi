@@ -540,11 +540,13 @@ class _SmallSegment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF303A30)),
+        color: runnerColors.panelElevated,
+        border: Border.all(color: runnerColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/formatters.dart';
 import '../../domain/models.dart';
+import '../../theme/app_theme.dart';
 import '../providers.dart';
 import '../run/run_screen.dart';
 import '../workouts/workout_editor_screen.dart';
@@ -152,9 +153,10 @@ class _HomeActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final runnerColors = Theme.of(context).extension<RunnerColors>()!;
     final textTheme = Theme.of(context).textTheme;
     return Material(
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+      color: runnerColors.panelElevated,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: accent.withValues(alpha: 0.42)),
@@ -520,20 +522,26 @@ class _SegmentRail extends StatelessWidget {
         itemBuilder: (context, index) {
           final segment = template.segments[index];
           final isRest = segment.kind == SegmentKind.rest;
+          final runnerColors = Theme.of(context).extension<RunnerColors>()!;
+          final accent = isRest ? runnerColors.warning : runnerColors.success;
           return Container(
             width: 118,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isRest ? const Color(0xFF14191D) : const Color(0xFF161D11),
+              color: isRest
+                  ? runnerColors.restSurface
+                  : runnerColors.runSurface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF303A30)),
+              border: Border.all(color: accent.withValues(alpha: 0.42)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${index + 1}. ${isRest ? 'REST' : 'RUN'}',
-                  style: Theme.of(context).textTheme.labelSmall,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: accent),
                 ),
                 const Spacer(),
                 Text(
