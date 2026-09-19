@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:runner_boi/src/app.dart';
+import 'package:runner_boi/src/features/providers.dart';
+import 'package:runner_boi/src/services/update_service.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('boots and opens the editor', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: RunnerBoiApp()));
+    await tester.pumpWidget(_smokeApp());
 
     await _pumpUi(tester);
 
@@ -33,7 +35,7 @@ void main() {
   });
 
   testWidgets('opens settings from bottom navigation', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: RunnerBoiApp()));
+    await tester.pumpWidget(_smokeApp());
     await _pumpUi(tester);
 
     await tester.tap(find.text('Settings'));
@@ -50,6 +52,26 @@ void main() {
     expect(find.text('App version'), findsOneWidget);
     expect(find.byKey(const Key('checkForUpdatesButton')), findsOneWidget);
   });
+}
+
+Widget _smokeApp() {
+  return ProviderScope(
+    overrides: [
+      selfUpdateServiceProvider.overrideWith((ref) async {
+        final prefs = await ref.watch(sharedPreferencesProvider.future);
+        return SelfUpdateService(
+          preferences: prefs,
+          log: ref.watch(logServiceProvider),
+          releaseFetcher: (_) async => null,
+          installedVersionLoader: () async => const InstalledAppVersion(
+            version: '1.0.2',
+            buildNumber: '100000',
+          ),
+        );
+      }),
+    ],
+    child: const RunnerBoiApp(),
+  );
 }
 
 Future<void> _pumpUi(WidgetTester tester) async {
