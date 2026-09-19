@@ -88,10 +88,13 @@ jobs:
         run: |
           version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)"
           # Keep CI release builds above local/manual builds such as 1.0.2+2018.
-          build="$((100000 + GITHUB_RUN_NUMBER))"
-          tag="v${version}+${build}"
+          # Flutter split APKs add an ABI offset to Android versionCode; arm64-v8a is +2000.
+          build_base="$((100000 + GITHUB_RUN_NUMBER))"
+          arm64_build="$((build_base + 2000))"
+          tag="v${version}+${arm64_build}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "build_base=${build_base}" >> "$GITHUB_OUTPUT"
+          echo "arm64_build=${arm64_build}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare Android signing key
@@ -111,7 +114,7 @@ jobs:
         run: |
           flutter build apk --release --split-per-abi \
             --build-name "${{ steps.version.outputs.version }}" \
-            --build-number "${{ steps.version.outputs.build }}"
+            --build-number "${{ steps.version.outputs.build_base }}"
 
       - name: Prepare release asset
         shell: bash

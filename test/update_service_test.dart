@@ -29,6 +29,7 @@ void main() {
     expect(compareAppVersions('v1.0.0+3', '1.0.0+3'), 0);
     expect(compareAppVersions('v1.0.0+3', '1.0.1+1'), lessThan(0));
     expect(compareAppVersions('v1.0.2+100020', '1.0.2+2018'), greaterThan(0));
+    expect(compareAppVersions('v1.0.2+102023', '1.0.2+102022'), greaterThan(0));
   });
 
   test('detects update and opens apk asset URL', () async {
