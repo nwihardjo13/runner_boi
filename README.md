@@ -118,7 +118,7 @@ Release checklist:
 3. Create a GitHub Release tagged with the app version, for example `v1.0.1`.
 4. Attach an `.apk` asset.
 
-On each `main` push, CI builds an arm64 APK, tags it with the app version plus GitHub run number, and publishes a release such as `v1.0.2+123`. The app checks at most once per day on startup, compares both version and build number, lets the user skip a version, and has a manual check in Settings. Android still requires the user to approve sideloaded APK installation.
+On each `main` push, CI builds an arm64 APK, tags it with the app version plus an offset GitHub run number, and publishes a release such as `v1.0.2+100123`. The offset keeps CI `versionCode` values above local/manual builds, which Android requires for sideloaded updates. The app checks at most once per day on startup, compares both version and build number, lets the user skip a version, and has a manual check in Settings. Android still requires the user to approve sideloaded APK installation.
 
 ## Verification
 

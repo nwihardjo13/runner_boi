@@ -87,7 +87,8 @@ jobs:
         shell: bash
         run: |
           version="$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)"
-          build="${GITHUB_RUN_NUMBER}"
+          # Keep CI release builds above local/manual builds such as 1.0.2+2018.
+          build="$((100000 + GITHUB_RUN_NUMBER))"
           tag="v${version}+${build}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "build=${build}" >> "$GITHUB_OUTPUT"

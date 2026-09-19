@@ -65,7 +65,8 @@ flutter build apk --debug
 
 - App version lives in `pubspec.yaml`.
 - Self-update checks read the latest GitHub Release for `nwihardjo13/runner_boi`.
-- Pushes to `main` publish release tags using app version plus GitHub run number, for example `v1.0.2+123`.
+- Pushes to `main` publish release tags using app version plus an offset GitHub run number, for example `v1.0.2+100123`.
+- Keep CI release build numbers above local/manual builds so Android sideloaded updates have a strictly increasing `versionCode`.
 - Attach or publish an `.apk` asset to releases so the app can open the APK URL directly.
 - Prefer arm64-v8a APK release assets for this personal Pixel-first app to keep download size down.
 - Keep the startup update checker once-per-day by default, with manual checks available from Settings.
@@ -75,7 +76,7 @@ flutter build apk --debug
 
 - Keep commits scoped and descriptive.
 - Do not revert user changes unless explicitly requested.
-- Current CI is intended for manual workflow runs and pull requests, not every direct push.
+- Current CI runs on every `main` push, pull request, and manual workflow dispatch.
 - If CI or README behavior changes, update both workflow and docs together.
 
 ## Quality Bar
