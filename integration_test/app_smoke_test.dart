@@ -40,6 +40,13 @@ void main() {
     await _pumpUi(tester);
 
     expect(find.text('Settings'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('App version'),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await _pumpUi(tester);
+
     expect(find.text('App version'), findsOneWidget);
     expect(find.byKey(const Key('checkForUpdatesButton')), findsOneWidget);
   });

@@ -633,15 +633,16 @@ class _Section extends StatelessWidget {
             style: Theme.of(context).textTheme.labelSmall,
           ),
           const SizedBox(height: 10),
-          Container(
+          SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
+            child: Material(
               color: runnerColors.panelElevated,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: runnerColors.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: runnerColors.border),
+              ),
+              child: Padding(padding: const EdgeInsets.all(14), child: child),
             ),
-            child: child,
           ),
         ],
       ),
